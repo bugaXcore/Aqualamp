@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Figtree", ui-sans-serif, sans-serif;
+  --font-display: "Syne", ui-sans-serif, sans-serif;
+  --color-depth-950: #061018;
+  --color-depth-900: #0a1628;
+  --color-depth-800: #0d2137;
+  --color-aqua-300: #5eead4;
+  --color-aqua-400: #2dd4bf;
+  --color-aqua-500: #14b8a6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: #e8f7f8;
+  background: var(--color-depth-950);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(45, 212, 191, 0.18), transparent 55%),
+    radial-gradient(80% 50% at 80% 90%, rgba(14, 116, 144, 0.22), transparent 50%),
+    linear-gradient(180deg, #0d2137 0%, #0a1628 42%, #061018 100%);
+}
+
+.caustics {
+  pointer-events: none;
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 40% 20% at 20% 30%, rgba(94, 234, 212, 0.12), transparent 50%),
+    radial-gradient(ellipse 35% 18% at 70% 20%, rgba(56, 189, 248, 0.1), transparent 55%),
+    radial-gradient(ellipse 45% 25% at 45% 70%, rgba(45, 212, 191, 0.08), transparent 50%);
+  animation: caustic-drift 14s ease-in-out infinite alternate;
+  mix-blend-mode: screen;
+}
+
+.depth-glow {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: min(70vw, 520px);
+  height: min(70vw, 520px);
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.16), transparent 68%);
+  filter: blur(8px);
+  animation: breath 7s ease-in-out infinite;
+}
+
+@keyframes caustic-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate3d(3%, 2%, 0) scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes breath {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translateX(-50%) scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateX(-50%) scale(1.04);
+  }
+}
+
+.hero-enter {
+  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.controls-enter {
+  animation: rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tank-preview {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 7.5rem;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 210, 220, 0.14);
+  background:
+    linear-gradient(180deg, rgba(8, 28, 42, 0.35), rgba(6, 16, 24, 0.65)),
+    radial-gradient(120% 90% at 50% 100%, var(--mix), transparent 70%);
+  box-shadow: inset 0 -30px 60px rgba(0, 0, 0, 0.25);
+  transition: background 180ms ease;
+}
+
+.tank-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 70% at 50% 100%, var(--mix), transparent 72%);
+  opacity: 0.85;
+  filter: blur(2px);
+  animation: tank-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes tank-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scaleY(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.02);
+  }
+}
+
+.channel-slider {
+  appearance: none;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(148, 210, 220, 0.14);
+  outline: none;
+}
+
+.channel-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  cursor: pointer;
+}
+
+.channel-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: none;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  cursor: pointer;
+}
+
+.h-13 {
+  height: 3.25rem;
+}

@@ -1,0 +1,40 @@
+export { WeekAquaController } from "./WeekAquaController.js";
+export {
+  encodeChannels,
+  PROTOCOL_CAPTURES,
+  PROTOCOL_CAPTURES_READY,
+  assertProtocolReadyForHardware,
+  isPlaceholderId,
+} from "./protocol.js";
+export {
+  DEFAULT_CHANNELS,
+  clampChannel,
+  normalizeChannels,
+  type Channels,
+  type ConnectionState,
+  type ControllerOptions,
+  type ControllerEvents,
+} from "./types.js";
+export { loadEnvFile } from "./loadEnv.js";
+
+export function loadControllerConfigFromEnv(): {
+  address: string;
+  serviceUuid: string;
+  characteristicUuid: string;
+  mock: boolean;
+  autoReconnect: boolean;
+} {
+  const flag = (name: string, fallback: boolean) => {
+    const raw = process.env[name];
+    if (raw === undefined) return fallback;
+    return raw === "1" || raw.toLowerCase() === "true" || raw.toLowerCase() === "yes";
+  };
+
+  return {
+    address: process.env.LIGHT_ADDRESS ?? "XX:XX:XX:XX:XX:XX",
+    serviceUuid: process.env.SERVICE_UUID ?? "XXXX",
+    characteristicUuid: process.env.CHARACTERISTIC_UUID ?? "YYYY",
+    mock: flag("AQUALAMP_MOCK", true),
+    autoReconnect: flag("AQUALAMP_AUTO_RECONNECT", false),
+  };
+}

@@ -1,0 +1,28 @@
+{
+  "name": "aqualamp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @aqualamp/controller && npm run build -w @aqualamp/cli && npm run build -w @aqualamp/bridge && npm run build -w @aqualamp/web",
+    "test": "npm run test -w @aqualamp/controller",
+    "cli": "tsx apps/cli/src/index.ts",
+    "bridge": "tsx apps/bridge/src/index.ts",
+    "web": "npm run dev -w @aqualamp/web",
+    "dev:bridge": "tsx apps/bridge/src/index.ts",
+    "dev:web": "npm run dev -w @aqualamp/web"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.14.0",
+    "tsx": "^4.19.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
