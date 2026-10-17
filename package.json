@@ -13,7 +13,10 @@
     "bridge": "tsx apps/bridge/src/index.ts",
     "web": "npm run dev -w @aqualamp/web",
     "dev:bridge": "tsx apps/bridge/src/index.ts",
-    "dev:web": "npm run dev -w @aqualamp/web"
+    "dev:web": "npm run dev -w @aqualamp/web",
+    "capture": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-capture.ps1",
+    "capture:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/capture-android.ps1",
+    "capture:parse": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/parse-capture.ps1"
   },
   "devDependencies": {
     "puppeteer-core": "^25.14.0",

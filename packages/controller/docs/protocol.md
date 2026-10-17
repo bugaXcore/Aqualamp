@@ -39,8 +39,14 @@ A1 01 <red> <green> <blue> <white> <checksum>
 
 Not valid on hardware.
 
-## Next capture recipe
+## Next capture recipe (beginner)
 
-1. Developer options → enable **Bluetooth HCI snoop log** (full, not filtered snooz if possible).
-2. In Week Aqua app: connect to `B3.0-S300pro-03`, then set **one** channel to 0, to 100, and power off — separately.
-3. Pull `btsnoop_hci.log` (or bugreport) and/or screenshot nRF Connect GATT table for service/char UUIDs.
+From the repo root, with the lamp already connected in the Week Aqua app:
+
+```powershell
+npm run capture
+```
+
+Follow the on-screen checklist (Red / Blue / Green / White / Off), press Enter, then open the printed `capture-report.md` under `files/captures/`.
+
+Optional: nRF Connect (Play Store) for UUID screenshots of `B3.0-S300pro-03`.

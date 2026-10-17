@@ -13,6 +13,64 @@ apps/cli  ───────────────────────�
 
 - Node.js 20+ and npm
 - No Bluetooth hardware required for the mock demo
+- For **capturing real light commands**: an Android phone, USB cable, and [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools) (`adb`)
+
+## Capture light commands (beginner)
+
+You already have the lamp **connected in the Week Aqua phone app**. We need to record what the app sends when you move the sliders. You do **not** need to understand Bluetooth.
+
+### What you will do
+
+1. Plug the phone into this PC with USB debugging on.
+2. Run one command.
+3. When the script tells you, move Red / Blue / Green / White / Off in the Week Aqua app.
+4. Press Enter so the PC can pull the logs and write a simple report.
+
+### Exact commands (PowerShell)
+
+From `F:\Projects\AquaLamp`:
+
+```powershell
+cd F:\Projects\AquaLamp
+npm install
+npm run capture
+```
+
+That single command runs capture + parse. Follow the on-screen checklist, then press Enter.
+
+Reports land in:
+
+```text
+F:\Projects\AquaLamp\files\captures\<timestamp>\capture-report.md
+```
+
+### Phone setup (once)
+
+1. On the phone: **Settings → About phone** → tap **Build number** 7 times (enables Developer options).
+2. **Settings → Developer options → USB debugging** = ON.
+3. Plug USB into this PC. On the phone, tap **Allow** if asked.
+4. Optional check: `adb devices` should show one line ending with `device`.
+
+If `adb` is missing, install **SDK Platform Tools**, unzip (e.g. `C:\platform-tools`), and add that folder to your PATH.
+
+### Optional: nRF Connect (UUIDs only)
+
+**nRF Connect** is a free app from Nordic Semiconductor on the Play Store. It is **not** required for the automated capture above.
+
+Use it only if you want screenshots of the lamp’s “service” and “characteristic” ID strings (UUIDs):
+
+1. Install **nRF Connect for Mobile**.
+2. Scan → connect to **B3.0-S300pro-03**.
+3. Open the GATT list and screenshot the writable characteristic.
+
+The automated `npm run capture` path records the **command bytes**. nRF Connect helps with **IDs**. Both help finish real hardware control.
+
+### Split commands (if needed)
+
+```powershell
+npm run capture:android   # checklist + pull logs only
+npm run capture:parse     # parse latest folder into capture-report.md
+```
 
 ## Mock end-to-end (Windows)
 
