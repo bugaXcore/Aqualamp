@@ -23,6 +23,13 @@ type NobleModule = {
 type NoblePeripheral = {
   id: string;
   address: string;
+  addressType?: string;
+  connectable?: boolean;
+  rssi?: number;
+  advertisement?: {
+    localName?: string;
+    serviceUuids?: string[];
+  };
   connectAsync: () => Promise<void>;
   disconnectAsync: () => Promise<void>;
   discoverSomeServicesAndCharacteristicsAsync: (
@@ -37,6 +44,11 @@ type NoblePeripheral = {
   once: (event: string, listener: (...args: unknown[]) => void) => void;
   removeListener: (event: string, listener: (...args: unknown[]) => void) => void;
 };
+
+/** Strip to lowercase hex for Windows id/address compare (`c847…` vs `c8:47:…`). */
+function normalizeBleAddr(value: string): string {
+  return value.replace(/[^0-9a-fA-F]/g, "").toLowerCase();
+}
 
 function envFlag(name: string, fallback = false): boolean {
   const raw = process.env[name];
@@ -95,7 +107,8 @@ export class WeekAquaController extends EventEmitter {
     this.characteristicUuid = options.characteristicUuid;
     this.mock = options.mock ?? envFlag("AQUALAMP_MOCK", true);
     this.autoReconnect = options.autoReconnect ?? false;
-    this.timeoutMs = options.timeoutMs ?? 15_000;
+    // Windows scans can take a while; lamp advertises intermittently.
+    this.timeoutMs = options.timeoutMs ?? 45_000;
   }
 
   getState(): ConnectionState {
@@ -210,14 +223,19 @@ export class WeekAquaController extends EventEmitter {
       this.noble = await this.loadNoble();
       await this.waitForPoweredOn();
 
-      this.setState("connecting");
       this.peripheral = await withTimeout(
         this.scanForPeripheral(),
         this.timeoutMs,
         "BLE scan",
       );
 
-      await withTimeout(this.peripheral.connectAsync(), this.timeoutMs, "BLE connect");
+      // Intel WinRT: must fully stop scanning before connect, or connect fails.
+      await this.noble.stopScanningAsync().catch(() => undefined);
+      await delay(300);
+
+      this.setState("connecting");
+      await this.connectPeripheralWithRetry(this.peripheral);
+
       this.peripheral.once("disconnect", () => {
         this.handleUnexpectedDisconnect(new Error("Peripheral disconnected"));
       });
@@ -247,12 +265,39 @@ export class WeekAquaController extends EventEmitter {
       this.emit("channels", this.getChannels());
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
+      const hint =
+        /could not connect|timed out|unreachable/i.test(error.message)
+          ? " Hint: force-close Week Aqua on the phone, keep the lamp near the PC, " +
+            "do not pair the lamp in Windows Settings, toggle PC Bluetooth off/on once."
+          : "";
+      const wrapped = new Error(error.message + hint);
       this.teardownBle();
       this.setState("error");
-      this.emit("error", error);
+      this.emit("error", wrapped);
       this.scheduleReconnect();
-      throw error;
+      throw wrapped;
     }
+  }
+
+  private async connectPeripheralWithRetry(peripheral: NoblePeripheral): Promise<void> {
+    const noble = this.noble!;
+    let lastErr: Error | null = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await noble.stopScanningAsync().catch(() => undefined);
+        await delay(attempt === 1 ? 200 : 800);
+        await withTimeout(peripheral.connectAsync(), this.timeoutMs, "BLE connect");
+        return;
+      } catch (err) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        try {
+          await peripheral.disconnectAsync();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    throw lastErr ?? new Error("BLE connect failed");
   }
 
   private assertHardwareConfig(): void {
@@ -308,20 +353,25 @@ export class WeekAquaController extends EventEmitter {
 
   private scanForPeripheral(): Promise<NoblePeripheral> {
     const noble = this.noble!;
-    const target = this.address.replace(/-/g, ":").toLowerCase();
+    const targetHex = normalizeBleAddr(this.address);
+    const serviceNeedle = this.normalizeUuid(this.serviceUuid);
 
     return new Promise<NoblePeripheral>((resolve, reject) => {
+      let settled = false;
+
       const onDiscover = (peripheral: unknown) => {
+        if (settled) return;
         const p = peripheral as NoblePeripheral;
-        const addr = (p.address || p.id || "").replace(/-/g, ":").toLowerCase();
-        if (addr === target || p.id?.toLowerCase() === target) {
-          cleanup();
-          void noble.stopScanningAsync().catch(() => undefined);
-          resolve(p);
-        }
+        if (!this.peripheralMatches(p, targetHex, serviceNeedle)) return;
+        settled = true;
+        cleanup();
+        // Caller awaits stopScanning before connect — just resolve the handle.
+        resolve(p);
       };
 
       const onError = (err: unknown) => {
+        if (settled) return;
+        settled = true;
         cleanup();
         reject(err instanceof Error ? err : new Error(String(err)));
       };
@@ -332,17 +382,42 @@ export class WeekAquaController extends EventEmitter {
       };
 
       noble.on("discover", onDiscover);
-      void noble
-        .startScanningAsync([], false)
-        .catch((err) => {
-          cleanup();
-          reject(
-            new Error(
-              `BLE scan failed (is the adapter up?). ${err instanceof Error ? err.message : String(err)}`,
-            ),
-          );
-        });
+      // allowDuplicates helps catch intermittent advertisers on Windows.
+      void noble.startScanningAsync([], true).catch((err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(
+          new Error(
+            `BLE scan failed (is the adapter up?). ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+      });
     });
+  }
+
+  private peripheralMatches(
+    p: NoblePeripheral,
+    targetHex: string,
+    serviceNeedle: string,
+  ): boolean {
+    const addrHex = normalizeBleAddr(p.address || "");
+    const idHex = normalizeBleAddr(p.id || "");
+    if (targetHex && (addrHex === targetHex || idHex === targetHex)) return true;
+
+    const name = (p.advertisement?.localName || "").toLowerCase();
+    if (name.includes("b3.0-s300") || name.includes("s300pro")) return true;
+
+    const services = p.advertisement?.serviceUuids ?? [];
+    if (
+      targetHex &&
+      (addrHex === targetHex || idHex === targetHex) === false &&
+      services.some((u) => this.normalizeUuid(u) === serviceNeedle)
+    ) {
+      // Service-only match is too loose alone — require MAC when we have one.
+      return false;
+    }
+    return false;
   }
 
   private handleUnexpectedDisconnect(error: Error): void {
