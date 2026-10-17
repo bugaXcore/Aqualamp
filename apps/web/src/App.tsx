@@ -407,20 +407,30 @@ export default function App() {
         <div className="depth-glow" />
       </div>
 
-      <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8">
-        <div className="font-[Syne] text-lg font-bold tracking-tight text-teal-50/90 sm:text-xl">
-          AquaLamp
+      <header className="relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <div className="min-w-0 flex-1">
+          {connected ? (
+            <p className="truncate text-sm text-teal-100/60">{dialHint}</p>
+          ) : null}
         </div>
-        <StatusChip state={bridge.state} mock={bridge.mock} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusChip state={bridge.state} mock={bridge.mock} />
+          {connected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => bridge.disconnect()}
+            >
+              Disconnect
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col px-5 pb-10 sm:px-8">
         {!connected ? (
           <section className="hero-enter flex flex-1 flex-col items-center justify-center text-center">
-            <h1 className="font-[Syne] text-6xl font-extrabold tracking-tight text-white sm:text-7xl md:text-8xl">
-              AquaLamp
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-teal-100/70 sm:text-lg">
+            <p className="max-w-md text-base leading-relaxed text-teal-100/70 sm:text-lg">
               Balance your Week Aqua light — cool channels, clear water light.
             </p>
             <div className="mt-10 flex flex-col items-center gap-3">
@@ -452,25 +462,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <section className="controls-enter flex flex-1 flex-col gap-10 overflow-visible pt-4">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-              <div>
-                <h2 className="font-[Syne] text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                  Channels
-                </h2>
-                <p className="mt-2 max-w-md text-sm text-teal-100/60">
-                  {dialHint}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => bridge.disconnect()}
-              >
-                Disconnect
-              </Button>
-            </div>
-
+          <section className="controls-enter flex flex-1 flex-col gap-10 overflow-visible pt-2">
             <div
               className="tank-preview"
               style={{
