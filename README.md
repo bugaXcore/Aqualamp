@@ -7,24 +7,34 @@ apps/web  →  WebSocket  →  apps/bridge  →  WeekAquaController  →  BLE (o
 apps/cli  ──────────────────────────────→  WeekAquaController
 ```
 
-**Phase 0 (partial):** phone logs identified MAC `C8:47:80:70:BB:07` (`B3.0-S300pro-03`) and raw 3-byte write frames, but **service/characteristic UUIDs and channel mapping are still missing**. Keep **mock mode** (`AQUALAMP_MOCK=1`, the default) until those are filled.
+**Phase 0 (advanced):** MAC + GATT UUIDs (`FFF0` / `FFF2`) and CustomMode R/G/B sample frames are known from a full HCI snoop. **0–100 scaling, UV, Fan, and Power mapping are still missing.** Keep **mock mode** (`AQUALAMP_MOCK=1`, the default) until Capture #2 fills those gaps.
 
 ## Prerequisites (Windows)
 
 - Node.js 20+ and npm
 - No Bluetooth hardware required for the mock demo
-- For **capturing real light commands**: an Android phone, USB cable, and [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools) (`adb`)
+- For **capturing real light commands**: an Android phone, USB cable, and [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools) (`adb`) — or use `files\platform-tools\adb.exe` if present
 
 ## Capture light commands (beginner)
 
 You already have the lamp **connected in the Week Aqua phone app**. We need to record what the app sends when you move the sliders. You do **not** need to understand Bluetooth.
 
-### What you will do
+HCI snoop should stay **Enabled**. Between each step below, pause ~3 seconds. Prefer **Custom Mode** (not presets).
 
-1. Plug the phone into this PC with USB debugging on.
-2. Run one command.
-3. When the script tells you, move Red / Blue / Green / White / Off in the Week Aqua app.
-4. Press Enter so the PC can pull the logs and write a simple report.
+### Capture #1 — done
+
+CustomMode R / G / B switches → recovered `fb f9 RR GG BB XX 55 55` samples and UUIDs. Report under `files\captures\manual-20261017-121500\`.
+
+### Capture #2 — goals (do this next)
+
+Stay in **Custom Mode**. One channel family at a time. Note the step number if you jot anything down.
+
+1. **Red mid-levels (scaling):** set G=B=UV=0, Fan=0, Power=100 (or default). Then Red → **25**, wait → **50**, wait → **75**, wait → **100**, wait. (Optional: Red → **0** at the end.)
+2. **UV-only:** set R=G=B=0. UV → **0**, wait → **100**, wait. (Optional: UV → **50** in the middle.)
+3. **Fan 0 vs 100:** with a fixed simple color (e.g. Red 50, others 0), Fan → **0**, wait → **100**, wait. (On S-series Fan may do nothing visually — still move the slider so we see the bytes.)
+4. **Power sweeps at fixed RGB:** set a fixed CustomMode color (e.g. R=50, G=0, B=0, UV=0, Fan=0). Then Power → **25**, wait → **50**, wait → **75**, wait → **100**, wait. (Optional: Power → **0**.)
+
+Then pull logs (script or manual bugreport) and parse.
 
 ### Exact commands (PowerShell)
 
@@ -36,7 +46,9 @@ npm install
 npm run capture
 ```
 
-That single command runs capture + parse. Follow the on-screen checklist, then press Enter.
+That single command runs capture + parse. Follow the **Capture #2** checklist above (the on-screen script list may be shorter — prefer this README). Press Enter when finished.
+
+You can also capture **manually**: Developer options → Bluetooth HCI snoop log ON → do the moves → share a bugreport ZIP into `files\captures\<folder>\` → `npm run capture:parse`.
 
 Reports land in:
 
@@ -48,22 +60,15 @@ F:\Projects\AquaLamp\files\captures\<timestamp>\capture-report.md
 
 1. On the phone: **Settings → About phone** → tap **Build number** 7 times (enables Developer options).
 2. **Settings → Developer options → USB debugging** = ON.
-3. Plug USB into this PC. On the phone, tap **Allow** if asked.
-4. Optional check: `adb devices` should show one line ending with `device`.
+3. **Enable Bluetooth HCI snoop log** = ON (needed for full frames).
+4. Plug USB into this PC. On the phone, tap **Allow** if asked.
+5. Optional check: `adb devices` should show one line ending with `device`.
 
-If `adb` is missing, install **SDK Platform Tools**, unzip (e.g. `C:\platform-tools`), and add that folder to your PATH.
+If `adb` is missing, put Platform Tools in `files\platform-tools\` (so `adb.exe` is there), or install system-wide and add to PATH.
 
 ### Optional: nRF Connect (UUIDs only)
 
-**nRF Connect** is a free app from Nordic Semiconductor on the Play Store. It is **not** required for the automated capture above.
-
-Use it only if you want screenshots of the lamp’s “service” and “characteristic” ID strings (UUIDs):
-
-1. Install **nRF Connect for Mobile**.
-2. Scan → connect to **B3.0-S300pro-03**.
-3. Open the GATT list and screenshot the writable characteristic.
-
-The automated `npm run capture` path records the **command bytes**. nRF Connect helps with **IDs**. Both help finish real hardware control.
+**nRF Connect** is a free app from Nordic Semiconductor on the Play Store. It is **not** required — UUIDs (`FFF0`/`FFF1`/`FFF2`) are already known from Capture #1.
 
 ### Split commands (if needed)
 

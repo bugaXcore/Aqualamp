@@ -2,8 +2,8 @@
 
 **Status:** Phase 0 advanced — MAC, GATT UUIDs (`fff0` / `fff2`), and CustomMode R/G/B sample frames from full HCI snoop. **0–100 channel scaling + UV/Fan/Power mapping still blocked.** `PROTOCOL_CAPTURES_READY = false`. Mock remains default.
 
-Canonical analysis: Project store `docs/phase-0-from-logs.md`.
-
+Canonical analysis: Project store `docs/phase-0-from-logs.md`.  
+Public product notes: Project store `docs/s300pro-research.md` (no published BLE protocol; RGB+UVA S-series; Power scales intensity; Fan likely unused on S-series; `FFF0/1/2` module pattern with proprietary payloads).
 ## Confirmed
 
 | Field | Value | Source |
