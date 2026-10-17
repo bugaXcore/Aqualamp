@@ -166,8 +166,9 @@ export class WeekAquaController extends EventEmitter {
         }
 
         try {
+          // Characteristic is write-without-response (props 0x04) — second arg true.
           await withTimeout(
-            this.characteristic.writeAsync(buffer, false),
+            this.characteristic.writeAsync(buffer, true),
             this.timeoutMs,
             "BLE write",
           );

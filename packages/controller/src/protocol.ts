@@ -189,12 +189,16 @@ export function encodePowerFrame(percent: number): Buffer {
 }
 
 export function assertProtocolReadyForHardware(): void {
-  if (!PROTOCOL_CAPTURES_READY) {
+  const force =
+    process.env.AQUALAMP_ALLOW_HARDWARE === "1" ||
+    process.env.AQUALAMP_ALLOW_HARDWARE?.toLowerCase() === "true";
+  if (!PROTOCOL_CAPTURES_READY && !force) {
     throw new Error(
       "AquaLamp protocol not ready for hardware writes (BLOCKER). " +
-        "UUIDs and CustomMode/Power frames are drafted, but live BLE is not " +
-        "verified yet (Fan unknown; companion opcodes unclear). " +
-        "Use AQUALAMP_MOCK=1. See packages/controller/docs/protocol.md.",
+        "UUIDs/frames/scale are known, but live BLE is not verified yet. " +
+        "For a supervised one-shot test set AQUALAMP_ALLOW_HARDWARE=1 with " +
+        "AQUALAMP_MOCK=0. Otherwise use AQUALAMP_MOCK=1. " +
+        "See packages/controller/docs/protocol.md.",
     );
   }
 }
