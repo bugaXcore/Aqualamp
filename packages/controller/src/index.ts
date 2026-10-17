@@ -3,6 +3,8 @@ export {
   encodeChannels,
   PROTOCOL_CAPTURES,
   PROTOCOL_CAPTURES_READY,
+  DEVICE_FROM_LOGS,
+  OBSERVED_WRITE_PAYLOADS,
   assertProtocolReadyForHardware,
   isPlaceholderId,
 } from "./protocol.js";
