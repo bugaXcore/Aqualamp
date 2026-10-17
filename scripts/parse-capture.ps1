@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Parse the latest (or given) capture folder into a human-readable report.
@@ -20,7 +20,7 @@ if (-not $node) {
 }
 
 $parser = Join-Path $PSScriptRoot "parse-capture.mjs"
-Write-Host "Running parser…" -ForegroundColor Cyan
+Write-Host "Running parser..." -ForegroundColor Cyan
 if ($Target) {
   & node $parser $Target
 } else {

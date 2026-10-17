@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Beginner-friendly Android Bluetooth capture for the Week Aqua S300 Pro.
@@ -21,11 +21,11 @@ $OutDir = Join-Path $OutRoot $Stamp
 
 function Write-Step([string]$msg) {
   Write-Host ""
-  Write-Host "==> $msg" -ForegroundColor Cyan
+  Write-Host ("==> " + $msg) -ForegroundColor Cyan
 }
 
 function Write-Hint([string]$msg) {
-  Write-Host "    $msg" -ForegroundColor DarkGray
+  Write-Host ("    " + $msg) -ForegroundColor DarkGray
 }
 
 function Find-Adb {
@@ -57,33 +57,33 @@ if (-not $adb) {
   Write-Host "  1. Install Google Platform Tools (search: 'SDK Platform Tools download')"
   Write-Host "  2. Unzip somewhere, e.g. C:\platform-tools"
   Write-Host "  3. Add that folder to your PATH, OR re-open this terminal after install"
-  Write-Host "  4. On the phone: Settings → Developer options → USB debugging = ON"
+  Write-Host "  4. On the phone: Settings -> Developer options -> USB debugging = ON"
   Write-Host "  5. Plug USB cable, tap 'Allow' on the phone if asked"
   exit 1
 }
 
-Write-Step "Using adb: $adb"
+Write-Step ("Using adb: " + $adb)
 & $adb version | Select-Object -First 2
 
 Write-Step "Checking phone connection (adb devices)"
 $devicesOut = & $adb devices
-$devicesOut | ForEach-Object { Write-Host "    $_" }
+$devicesOut | ForEach-Object { Write-Host ("    " + $_) }
 $ready = @($devicesOut | Select-Object -Skip 1 | Where-Object { $_ -match "\tdevice$" })
 if ($ready.Count -lt 1) {
   Write-Host ""
   Write-Host "No phone ready." -ForegroundColor Red
   Write-Host "Fix checklist:" -ForegroundColor Yellow
-  Write-Host "  • Unlock the phone"
-  Write-Host "  • USB cable plugged into this PC"
-  Write-Host "  • USB debugging ON (Developer options)"
-  Write-Host "  • Tap Allow / Always allow this computer on the phone popup"
-  Write-Host "  • If you see 'unauthorized', unplug/replug and Allow again"
-  Write-Host "  • Run: adb devices   — you want one line ending with 'device'"
+  Write-Host "  - Unlock the phone"
+  Write-Host "  - USB cable plugged into this PC"
+  Write-Host "  - USB debugging ON (Developer options)"
+  Write-Host "  - Tap Allow / Always allow this computer on the phone popup"
+  Write-Host "  - If you see 'unauthorized', unplug/replug and Allow again"
+  Write-Host "  - Run: adb devices   - you want one line ending with 'device'"
   exit 1
 }
 
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-Write-Step "Output folder: $OutDir"
+Write-Step ("Output folder: " + $OutDir)
 
 # Best-effort enable HCI snoop
 Write-Step "Trying to enable Bluetooth HCI logging on the phone"
@@ -92,16 +92,16 @@ $enableCmds = @(
   @("shell", "setprop", "persist.bluetooth.btsnooplogmode", "full"),
   @("shell", "setprop", "persist.bluetooth.btsnoopmode", "full")
 )
-foreach ($args in $enableCmds) {
+foreach ($cmdArgs in $enableCmds) {
   try {
-    & $adb @args 2>$null | Out-Null
-    Write-Hint ("ok: adb " + ($args -join " "))
+    & $adb @cmdArgs 2>$null | Out-Null
+    Write-Hint ("ok: adb " + ($cmdArgs -join " "))
   } catch {
-    Write-Hint ("skip: adb " + ($args -join " "))
+    Write-Hint ("skip: adb " + ($cmdArgs -join " "))
   }
 }
 Write-Hint "If logging was off before, toggle Bluetooth OFF then ON once on the phone."
-Write-Hint "(Some phones also need: Developer options → 'Enable Bluetooth HCI snoop log')"
+Write-Hint "(Some phones also need: Developer options -> 'Enable Bluetooth HCI snoop log')"
 
 # Known log locations to try later
 $HciCandidates = @(
@@ -118,12 +118,12 @@ Write-Host "  DO THESE MOVES IN THE WEEK AQUA APP (on your phone)" -ForegroundCo
 Write-Host "============================================================" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Keep the lamp CONNECTED in the app the whole time." -ForegroundColor White
-Write-Host "Between each step, wait about 3 seconds (count slowly: 1…2…3)." -ForegroundColor White
+Write-Host "Between each step, wait about 3 seconds (count slowly: 1...2...3)." -ForegroundColor White
 Write-Host ""
-Write-Host "  1. Red slider → 0, wait, then Red → 100, wait"
-Write-Host "  2. Blue slider → 0, wait, then Blue → 100, wait"
-Write-Host "  3. Green slider → 0, wait, then Green → 100, wait"
-Write-Host "  4. White slider → 0, wait, then White → 100, wait"
+Write-Host "  1. Red slider -> 0, wait, then Red -> 100, wait"
+Write-Host "  2. Blue slider -> 0, wait, then Blue -> 100, wait"
+Write-Host "  3. Green slider -> 0, wait, then Green -> 100, wait"
+Write-Host "  4. White slider -> 0, wait, then White -> 100, wait"
 Write-Host "  5. Turn the light OFF (power / all channels 0), wait"
 Write-Host ""
 Write-Host "Optional (helps find UUIDs later): install 'nRF Connect' from the" -ForegroundColor DarkGray
@@ -145,7 +145,7 @@ foreach ($remote in $HciCandidates) {
   if (Test-Path $local) {
     $len = (Get-Item $local).Length
     if ($len -gt 64) {
-      Write-Hint "pulled $remote ($len bytes)"
+      Write-Hint ("pulled " + $remote + " (" + $len + " bytes)")
       $pulled += $local
     } else {
       Remove-Item $local -Force -ErrorAction SilentlyContinue
@@ -153,12 +153,12 @@ foreach ($remote in $HciCandidates) {
   }
 }
 
-Write-Hint "Generating bugreport (most reliable on modern phones)…"
+Write-Hint "Generating bugreport (most reliable on modern phones)..."
 $bugZip = Join-Path $OutDir "bugreport.zip"
 try {
   & $adb bugreport $bugZip
   if (Test-Path $bugZip) {
-    Write-Hint "bugreport saved: $bugZip"
+    Write-Hint ("bugreport saved: " + $bugZip)
     $pulled += $bugZip
 
     # Expand and search for btsnoop inside
@@ -174,12 +174,12 @@ try {
     foreach ($f in $found) {
       $dest = Join-Path $OutDir $f.Name
       Copy-Item $f.FullName $dest -Force
-      Write-Hint "found inside bugreport: $($f.Name)"
+      Write-Hint ("found inside bugreport: " + $f.Name)
       $pulled += $dest
     }
   }
 } catch {
-  Write-Hint "bugreport failed: $($_.Exception.Message)"
+  Write-Hint ("bugreport failed: " + $_.Exception.Message)
   Write-Hint "You can still manually share a bugreport ZIP into files\captures\"
 }
 
@@ -204,7 +204,7 @@ $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path $manifestPath -Encoding 
 
 Write-Host ""
 Write-Host "Capture folder ready:" -ForegroundColor Green
-Write-Host "  $OutDir"
+Write-Host ("  " + $OutDir)
 Write-Host ""
 Write-Host "Next: parse it with:" -ForegroundColor Cyan
 Write-Host "  npm run capture:parse"

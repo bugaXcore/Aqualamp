@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   One-shot: capture from phone, then parse into a readable report.
@@ -12,7 +12,7 @@ $here = $PSScriptRoot
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "  AquaLamp — capture light commands" -ForegroundColor Green
+Write-Host "  AquaLamp - capture light commands" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Before you start:" -ForegroundColor Yellow
@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Parsing what we pulled…" -ForegroundColor Cyan
+Write-Host "Parsing what we pulled..." -ForegroundColor Cyan
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here "parse-capture.ps1")
 $code = $LASTEXITCODE
 
@@ -42,10 +42,10 @@ if (Test-Path $latest) {
   Write-Host "Done." -ForegroundColor Green
   if (Test-Path $report) {
     Write-Host "Open this report:" -ForegroundColor Green
-    Write-Host "  $report"
+    Write-Host ("  " + $report)
   } else {
     Write-Host "Capture folder:" -ForegroundColor Yellow
-    Write-Host "  $dir"
+    Write-Host ("  " + $dir)
   }
 }
 
