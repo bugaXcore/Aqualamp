@@ -2,6 +2,10 @@ export { WeekAquaController } from "./WeekAquaController.js";
 export {
   encodeChannels,
   encodeCustomModeFrame,
+  encodePowerFrame,
+  percentToWire,
+  wireToPercent,
+  CHANNEL_WIRE_MAX,
   PROTOCOL_CAPTURES,
   PROTOCOL_CAPTURES_READY,
   DEVICE_FROM_LOGS,

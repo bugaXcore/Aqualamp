@@ -2,11 +2,14 @@ import type { Channels } from "./types.js";
 
 /**
  * Protocol readiness gate.
- * Flip to true only after encodeChannels maps 0–100 app channels
- * (R/G/B/UV/Fan/Power — controller currently models R/G/B/W) to real frames.
- * Service/char UUIDs are known from full HCI snoop; channel scaling is not.
+ * UUIDs + CustomMode/Power frame layouts are known from Capture #1/#2.
+ * Keep false until a live write is verified (companion opcodes / Power pairing).
+ * Mock remains the default (`AQUALAMP_MOCK=1`).
  */
 export const PROTOCOL_CAPTURES_READY = false;
+
+/** App percent 0–100 maps to wire byte 0–235 (`0xeb` = 100%). */
+export const CHANNEL_WIRE_MAX = 235;
 
 /**
  * Evidence from Android bugreports + HCI snoops (2026-10-17).
@@ -38,87 +41,94 @@ export const DEVICE_FROM_LOGS = {
   characteristicUuidShort: "fff2",
   /** Notify/read companion on same service (value handle 0x0012). */
   notifyCharacteristicUuidShort: "fff1",
+  /** Wire max for channel / power bytes (Capture #2). */
+  channelWireMax: CHANNEL_WIRE_MAX,
 } as const;
 
 /**
- * Week Aqua app channel names (UI). Controller `Channels` still uses
- * red/green/blue/white until UV/Fan/Power mapping is confirmed.
+ * Week Aqua app channel names (UI).
+ * Controller `Channels.white` is treated as **UV** on the wire until types are renamed.
  */
 export const APP_CHANNELS = ["R", "G", "B", "UV", "Fan", "Power"] as const;
 
 /**
  * Raw ATT Write Command payloads observed on handle 0x0010.
- * Older truncated btsnooz samples were 3 bytes; full snoop shows 8-byte frames.
  */
 export const OBSERVED_WRITE_PAYLOADS: Record<string, string> = {
-  // --- CustomMode R/G/B samples (manual-20261017-121500, HCI snoop Enabled) ---
+  // --- CustomMode R/G/B (Capture #1) ---
   "custom-mode-red": "fb f9 eb 00 00 00 55 55",
   "custom-mode-green": "fb f9 00 eb 00 00 55 55",
   "custom-mode-blue": "fb f9 00 00 eb 00 55 55",
   "custom-mode-rgb-zero": "fb f9 00 00 00 00 55 55",
   "custom-mode-mixed": "fb f9 79 df 74 eb 55 55",
-  // --- Companion / session frames (same capture; intent unclear) ---
+  // --- UV ladder samples (Capture #2, R=G=B=0) ---
+  "uv-near-25": "fb f9 00 00 00 3b 55 55",
+  "uv-near-50": "fb f9 00 00 00 78 55 55",
+  "uv-near-75": "fb f9 00 00 00 b3 55 55",
+  "uv-100": "fb f9 00 00 00 eb 55 55",
+  // --- Power sweep (Capture #2) ---
+  "power-near-25": "fc 3b 55 55 55 55 55 55",
+  "power-near-50": "fc 7a 55 55 55 55 55 55",
+  "power-0": "fc 00 55 55 55 55 55 55",
+  // --- Companion / session frames ---
   "op-fe-f9-follow": "fe f9 08 06 19 42 00 00",
   "op-fe-f9-alt": "fe f9 00 00 24 00 00 00",
   "op-fd-f1": "fd f1 55 55 55 55 55 55",
   "op-ff-12": "ff 12 14 08 55 55 55 55",
   "op-f9-pad": "f9 55 55 55 55 55 55 55",
-  // --- Earlier truncated btsnooz scraps (likely incomplete ACL) ---
-  "truncated-ff-10-00": "ff 10 00",
-  "truncated-f9-55-55": "f9 55 55",
-  "truncated-fd-f2-55": "fd f2 55",
-  "truncated-fe-f1-00": "fe f1 00",
-  "truncated-fb-f1-00": "fb f1 00",
 };
 
 /**
- * Intent-labeled capture table for the channel API.
- * CustomMode extremes recorded; 0–100 linear mapping still unknown.
+ * Intent-labeled capture table.
  */
 export const PROTOCOL_CAPTURES: Record<string, string> = {
   "custom-mode-red": "fb f9 eb 00 00 00 55 55",
   "custom-mode-green": "fb f9 00 eb 00 00 55 55",
   "custom-mode-blue": "fb f9 00 00 eb 00 55 55",
   "custom-mode-rgb-zero": "fb f9 00 00 00 00 55 55",
-  "red-100": "",
-  "blue-100": "",
-  "all-off": "",
+  "uv-100": "fb f9 00 00 00 eb 55 55",
+  "power-0": "fc 00 55 55 55 55 55 55",
+  "red-100": "fb f9 eb 00 00 00 55 55",
+  "blue-100": "fb f9 00 00 eb 00 55 55",
+  "all-off": "fb f9 00 00 00 00 55 55",
 };
 
-/**
- * CustomMode frame layout (high confidence from R/G/B samples):
- *   fb f9 <R> <G> <B> <X> 55 55
- * Observed “on” channel byte was 0xeb (235), not 100 — scaling unknown.
- * Byte X may relate to UV (unconfirmed). Fan/Power use other opcodes.
- *
- * Until 0–100 mapping exists this still emits a deterministic stub frame.
- * Real BLE path refuses writes while PROTOCOL_CAPTURES_READY is false.
- */
-export function encodeChannels(channels: Channels): Buffer {
-  // Stub frame layout (not hardware-valid):
-  // [0xA1, 0x01, red, green, blue, white, checksum]
-  const body = Buffer.from([
-    0xa1,
-    0x01,
-    channels.red & 0xff,
-    channels.green & 0xff,
-    channels.blue & 0xff,
-    channels.white & 0xff,
-  ]);
-  let sum = 0;
-  for (const b of body) sum = (sum + b) & 0xff;
-  return Buffer.concat([body, Buffer.from([sum])]);
+/** Convert app 0–100 percent to wire byte (0–235). */
+export function percentToWire(percent: number): number {
+  if (!Number.isFinite(percent)) return 0;
+  const p = Math.max(0, Math.min(100, percent));
+  return Math.round((p * CHANNEL_WIRE_MAX) / 100);
+}
+
+/** Convert wire byte (0–235) back to nearest app percent. */
+export function wireToPercent(wire: number): number {
+  if (!Number.isFinite(wire)) return 0;
+  const w = Math.max(0, Math.min(CHANNEL_WIRE_MAX, wire));
+  return Math.round((w * 100) / CHANNEL_WIRE_MAX);
 }
 
 /**
- * Build a CustomMode-style frame from raw 0–255 channel bytes (research helper).
- * Not used by the live controller path; mock remains default.
+ * CustomMode channel frame:
+ *   fb f9 <R> <G> <B> <UV> 55 55
+ * `Channels.white` is encoded as UV (interim API).
+ */
+export function encodeChannels(channels: Channels): Buffer {
+  return encodeCustomModeFrame(
+    percentToWire(channels.red),
+    percentToWire(channels.green),
+    percentToWire(channels.blue),
+    percentToWire(channels.white),
+  );
+}
+
+/**
+ * Build a CustomMode frame from raw wire bytes (0–235).
  */
 export function encodeCustomModeFrame(
   red: number,
   green: number,
   blue: number,
-  x = 0,
+  uv = 0,
 ): Buffer {
   return Buffer.from([
     0xfb,
@@ -126,7 +136,25 @@ export function encodeCustomModeFrame(
     red & 0xff,
     green & 0xff,
     blue & 0xff,
-    x & 0xff,
+    uv & 0xff,
+    0x55,
+    0x55,
+  ]);
+}
+
+/**
+ * Power (global intensity) frame from Capture #2:
+ *   fc <level> 55 55 55 55 55 55
+ * Same 0–100 → 0–235 scale. Independent of the CustomMode RGB/UV frame.
+ */
+export function encodePowerFrame(percent: number): Buffer {
+  return Buffer.from([
+    0xfc,
+    percentToWire(percent) & 0xff,
+    0x55,
+    0x55,
+    0x55,
+    0x55,
     0x55,
     0x55,
   ]);
@@ -136,9 +164,9 @@ export function assertProtocolReadyForHardware(): void {
   if (!PROTOCOL_CAPTURES_READY) {
     throw new Error(
       "AquaLamp protocol not ready for hardware writes (BLOCKER). " +
-        "MAC + GATT UUIDs (fff0/fff2) are known, but 0–100 channel↔frame " +
-        "mapping (R/G/B/UV/Fan/Power) is still incomplete. Use AQUALAMP_MOCK=1. " +
-        "See packages/controller/docs/protocol.md.",
+        "UUIDs and CustomMode/Power frames are drafted, but live BLE is not " +
+        "verified yet (Fan unknown; companion opcodes unclear). " +
+        "Use AQUALAMP_MOCK=1. See packages/controller/docs/protocol.md.",
     );
   }
 }
