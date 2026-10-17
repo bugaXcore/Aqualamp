@@ -23,20 +23,21 @@ export type DayPreset = {
   keyframes: Keyframe[];
   snap: SnapMode;
   interpolation: Interpolation;
+  /** Hardcoded starter — never persisted; edits blocked in UI */
+  builtin?: boolean;
 };
 
 export type PresetStore = {
-  /** Bump when starter library / schema must re-seed for existing browsers. */
-  version: 2;
+  /** v3: user presets only (builtins live in code). */
+  version: 3;
   presets: DayPreset[];
 };
 
 /**
- * localStorage key. v2 forces a fresh seed for anyone who still has a
- * custom empty shell under v1 — hard-refresh is enough (no DevTools).
- * Clear this key to re-seed starters again.
+ * User-preset storage. Built-ins are NOT written here.
+ * Bumped to v3 so old seeded v2 blobs cannot fight the hardcoded library.
  */
-export const PRESETS_STORAGE_KEY = "aqualamp.dayPresets.v2";
+export const PRESETS_STORAGE_KEY = "aqualamp.dayPresets.v3";
 
 export const ZERO_CHANNELS: Channels = {
   red: 0,
@@ -64,7 +65,7 @@ function kf(
   uv: number,
 ): Keyframe {
   return {
-    id: `seed-${label.toLowerCase().replace(/\s+/g, "-")}`,
+    id: `builtin-${label.toLowerCase().replace(/\s+/g, "-")}`,
     label,
     minutes: hours * 60 + minutes,
     channels: ch(red, green, blue, uv),
@@ -72,12 +73,12 @@ function kf(
 }
 
 /**
- * Built-in starter library. Seeded into `aqualamp.dayPresets.v2` when that
- * key is missing/empty. Clear `PRESETS_STORAGE_KEY` (or bump the key) to reset.
+ * Hardcoded built-in library — source of truth in code, never editable,
+ * never stored in localStorage.
  */
-export const STARTER_PRESETS: DayPreset[] = [
+export const BUILTIN_PRESETS: DayPreset[] = [
   {
-    id: "seed-bioactive-24-7",
+    id: "builtin-bioactive-24-7",
     name: "The Bioactive 24/7 Cycle (The Daily Driver)",
     description:
       "For deep, nutrient-rich dirted layers topped with sand, managing the photoperiod is critical to prevent algae blooms before the microfauna and plants fully establish. This curve utilizes a long, slow ramp-up to gently wake the tank, a short midday peak for high-energy photosynthesis, and a warm evening fade.",
@@ -85,6 +86,7 @@ export const STARTER_PRESETS: DayPreset[] = [
     constantChannels: { ...ZERO_CHANNELS },
     snap: "free",
     interpolation: "linear",
+    builtin: true,
     keyframes: [
       kf("Sunrise", 8, 30, 10, 5, 0, 0),
       kf("Morning Climb", 10, 30, 50, 40, 30, 10),
@@ -95,7 +97,7 @@ export const STARTER_PRESETS: DayPreset[] = [
     ],
   },
   {
-    id: "seed-jewel-canopy",
+    id: "builtin-jewel-canopy",
     name: "The Jewel Canopy",
     description:
       "This is a low-intensity, high-fluorescence mix designed specifically for the shaded, humid terrestrial zones of a paludarium. Cranking the UV channel while dropping the primary RGB colors dramatically highlights the sparkling, lightning-bolt veins of Macodes petola and other jewel orchids without scorching their delicate leaves.",
@@ -104,9 +106,10 @@ export const STARTER_PRESETS: DayPreset[] = [
     keyframes: [],
     snap: "free",
     interpolation: "linear",
+    builtin: true,
   },
   {
-    id: "seed-high-contrast-scape",
+    id: "builtin-high-contrast-scape",
     name: "The High-Contrast Scape",
     description:
       'This preset is engineered to maximize color separation. Pushing the red channel to 100% makes Neocaridina shrimp and red stem plants visually "pop" and look incredibly vibrant, while the moderate blue and green keep epiphytes looking lush. This mix creates a striking, moody contrast against dark, porous hardscapes like Scoria lava rock.',
@@ -115,9 +118,10 @@ export const STARTER_PRESETS: DayPreset[] = [
     keyframes: [],
     snap: "free",
     interpolation: "linear",
+    builtin: true,
   },
   {
-    id: "seed-crisp-photography",
+    id: "builtin-crisp-photography",
     name: "Crisp Photography",
     description:
       "Most RGB aquarium lights create a slight magenta or warm hue that looks great to the human eye but confuses smartphone cameras. This is a flat, perfectly balanced 6500K daylight equivalent. It provides clean, white illumination so you can take accurate photos of your layout without weird color casting.",
@@ -126,9 +130,10 @@ export const STARTER_PRESETS: DayPreset[] = [
     keyframes: [],
     snap: "free",
     interpolation: "linear",
+    builtin: true,
   },
   {
-    id: "seed-lunar-viewing",
+    id: "builtin-lunar-viewing",
     name: "Lunar Viewing",
     description:
       "A very dim, cold blue/UV mix for late-night viewing. It provides just enough illumination to observe nocturnal microfauna activity and cleaners emerging from the substrate, without triggering algae growth or severely disrupting the circadian rhythm of the tank.",
@@ -137,8 +142,26 @@ export const STARTER_PRESETS: DayPreset[] = [
     keyframes: [],
     snap: "free",
     interpolation: "linear",
+    builtin: true,
   },
 ];
+
+const BUILTIN_IDS = new Set(BUILTIN_PRESETS.map((p) => p.id));
+
+/** Legacy seed ids from v1/v2 — never treat as user presets. */
+const LEGACY_SEED_PREFIXES = ["seed-", "builtin-"];
+
+export function isBuiltinPreset(preset: DayPreset | string): boolean {
+  if (typeof preset === "string") {
+    return (
+      BUILTIN_IDS.has(preset) ||
+      preset.startsWith("seed-") ||
+      preset.startsWith("builtin-")
+    );
+  }
+  if (preset.builtin) return true;
+  return BUILTIN_IDS.has(preset.id);
+}
 
 export function minsToTime(mins: number): string {
   const clamped = ((Math.round(mins) % 1440) + 1440) % 1440;
@@ -171,7 +194,7 @@ export function newId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Empty editable shell. */
+/** Empty editable user shell (not yet saved). */
 export function createEmptyPreset(name = "New preset"): DayPreset {
   return {
     id: newId(),
@@ -182,7 +205,54 @@ export function createEmptyPreset(name = "New preset"): DayPreset {
     keyframes: [],
     snap: "free",
     interpolation: "linear",
+    builtin: false,
   };
+}
+
+/** Deep-ish clone of a preset as a new editable user copy. */
+export function duplicateAsUserPreset(source: DayPreset): DayPreset {
+  return {
+    id: newId(),
+    name: `${source.name} (copy)`,
+    description: source.description ?? "",
+    mode: source.mode,
+    constantChannels: { ...source.constantChannels },
+    keyframes: source.keyframes.map((k) => ({
+      id: newId(),
+      minutes: k.minutes,
+      channels: { ...k.channels },
+      label: k.label,
+    })),
+    snap: source.snap,
+    interpolation: "linear",
+    builtin: false,
+  };
+}
+
+export function clonePreset(preset: DayPreset): DayPreset {
+  return {
+    ...preset,
+    constantChannels: { ...preset.constantChannels },
+    keyframes: preset.keyframes.map((k) => ({
+      ...k,
+      channels: { ...k.channels },
+    })),
+  };
+}
+
+export function presetsEqual(a: DayPreset, b: DayPreset): boolean {
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    (a.description ?? "") === (b.description ?? "") &&
+    a.mode === b.mode &&
+    a.snap === b.snap &&
+    a.constantChannels.red === b.constantChannels.red &&
+    a.constantChannels.green === b.constantChannels.green &&
+    a.constantChannels.blue === b.constantChannels.blue &&
+    a.constantChannels.uv === b.constantChannels.uv &&
+    JSON.stringify(a.keyframes) === JSON.stringify(b.keyframes)
+  );
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -239,52 +309,48 @@ export function interpolateAt(
 
   const span = p2Mins - p1Mins;
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;
-  // Gentle ease between keyframes (smoothstep) — matches softened timeline curves
   const progress = linear * linear * (3 - 2 * linear);
   return lerpChannels(p1.channels, p2.channels, progress);
 }
 
-/**
- * Load presets from localStorage (`aqualamp.dayPresets.v2`).
- * Missing / wrong version / empty → seed STARTER_PRESETS.
- * v1 keys are ignored so prior empty shells do not block starters.
- */
-export function loadPresets(): DayPreset[] {
+/** Load committed user presets only (never builtins). */
+export function loadUserPresets(): DayPreset[] {
   try {
     const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
-    if (!raw) {
-      return seedStarters();
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as PresetStore;
-    if (parsed?.version !== 2 || !Array.isArray(parsed.presets)) {
-      return seedStarters();
-    }
-    if (parsed.presets.length === 0) {
-      return seedStarters();
-    }
-    return parsed.presets.map(normalizePreset);
+    if (parsed?.version !== 3 || !Array.isArray(parsed.presets)) return [];
+    return parsed.presets
+      .map(normalizeUserPreset)
+      .filter((p) => !isBuiltinPreset(p) && !isLegacySeedId(p.id));
   } catch {
-    return seedStarters();
+    return [];
   }
 }
 
-function seedStarters(): DayPreset[] {
-  const seeded = STARTER_PRESETS.map(normalizePreset);
-  savePresets(seeded);
-  return seeded;
+function isLegacySeedId(id: string): boolean {
+  return LEGACY_SEED_PREFIXES.some((p) => id.startsWith(p));
 }
 
-export function savePresets(presets: DayPreset[]): void {
-  const store: PresetStore = { version: 2, presets };
+/** Persist committed user presets only. */
+export function saveUserPresets(presets: DayPreset[]): void {
+  const users = presets
+    .filter((p) => !isBuiltinPreset(p))
+    .map((p) => ({ ...normalizeUserPreset(p), builtin: false }));
+  const store: PresetStore = { version: 3, presets: users };
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
 }
 
-/** Clear stored presets (next loadPresets / page reload re-seeds starters). */
 export function clearPresetStorage(): void {
   localStorage.removeItem(PRESETS_STORAGE_KEY);
 }
 
-function normalizePreset(p: Partial<DayPreset>): DayPreset {
+/** Built-ins first, then committed user presets (apply draft overlays elsewhere). */
+export function mergePresetLibrary(userPresets: DayPreset[]): DayPreset[] {
+  return [...BUILTIN_PRESETS.map(clonePreset), ...userPresets.map(clonePreset)];
+}
+
+function normalizeUserPreset(p: Partial<DayPreset>): DayPreset {
   return {
     id: p.id ?? newId(),
     name: typeof p.name === "string" && p.name.trim() ? p.name : "Untitled",
@@ -305,6 +371,7 @@ function normalizePreset(p: Partial<DayPreset>): DayPreset {
       : [],
     snap: p.snap === "hour" ? "hour" : "free",
     interpolation: "linear",
+    builtin: false,
   };
 }
 
@@ -322,3 +389,6 @@ function clampPct(v: unknown): number {
   if (!Number.isFinite(n)) return 0;
   return Math.min(100, Math.max(0, Math.round(n)));
 }
+
+/** @deprecated use BUILTIN_PRESETS */
+export const STARTER_PRESETS = BUILTIN_PRESETS;

@@ -31,6 +31,8 @@ type Props = {
   selectedKeyframeId: string | null;
   playheadMinutes: number;
   workspaceMode: TimelineWorkspaceMode;
+  /** Built-in / locked composition — scrub OK, no keyframe writes */
+  compositionLocked?: boolean;
   onWorkspaceModeChange: (mode: TimelineWorkspaceMode) => void;
   onScrub: (minutes: number) => void;
   onSelectKeyframe: (id: string | null) => void;
@@ -123,6 +125,7 @@ export function DayTimeline({
   selectedKeyframeId,
   playheadMinutes,
   workspaceMode,
+  compositionLocked = false,
   onWorkspaceModeChange,
   onScrub,
   onSelectKeyframe,
@@ -135,6 +138,7 @@ export function DayTimeline({
 
   const isEdit = workspaceMode === "edit";
   const isLive = workspaceMode === "live";
+  const canCompose = isEdit && !compositionLocked;
 
   const minsFromEvent = (clientX: number, snap: boolean): number => {
     const el = svgRef.current;
@@ -169,9 +173,11 @@ export function DayTimeline({
     ? "Select a preset to compose or play back the day."
     : isLive
       ? "LIVE — clock-synced playback · dials are telemetry"
-      : preset.mode === "constant"
-        ? "EDIT — constant levels · scrub to preview"
-        : "EDIT — scrub CTI · dials write a keyframe at playhead";
+      : compositionLocked
+        ? "EDIT — built-in read-only · scrub to preview · Duplicate to edit"
+        : preset.mode === "constant"
+          ? "EDIT — constant levels · Save to keep changes"
+          : "EDIT — scrub CTI · dials write a keyframe · Save to keep";
 
   return (
     <div className="timeline-panel">
@@ -260,7 +266,7 @@ export function DayTimeline({
           }}
           onPointerMove={(e) => {
             if (!preset || !isEdit) return;
-            if (draggingNode) {
+            if (draggingNode && canCompose) {
               onMoveKeyframe(draggingNode, minsFromEvent(e.clientX, true));
               return;
             }
@@ -277,7 +283,7 @@ export function DayTimeline({
             }
           }}
           onDoubleClick={(e) => {
-            if (!preset || !isEdit || preset.mode !== "schedule") return;
+            if (!preset || !canCompose || preset.mode !== "schedule") return;
             if ((e.target as Element).closest("[data-kf]")) return;
             const mins = minsFromEvent(e.clientX, true);
             onAddKeyframe(mins, interpolateAt(preset, mins));
@@ -382,7 +388,7 @@ export function DayTimeline({
           )}
 
           {schedule &&
-            isEdit &&
+            canCompose &&
             sorted.map((kf) => {
               const x = (kf.minutes / 1440) * W;
               const active = selectedKeyframeId === kf.id;
@@ -473,9 +479,9 @@ export function DayTimeline({
               );
             })}
 
-          {/* Dim keyframe ghosts in LIVE */}
+          {/* Dim keyframe markers when locked (LIVE or built-in) */}
           {schedule &&
-            isLive &&
+            !canCompose &&
             sorted.map((kf) => {
               const x = (kf.minutes / 1440) * W;
               return (
