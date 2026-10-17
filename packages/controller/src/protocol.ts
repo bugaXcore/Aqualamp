@@ -2,14 +2,29 @@ import type { Channels } from "./types.js";
 
 /**
  * Protocol readiness gate.
- * UUIDs + CustomMode/Power frame layouts are known from Capture #1/#2.
- * Keep false until a live write is verified (companion opcodes / Power pairing).
+ * Scale + CustomMode/Power frames confirmed through Capture #3.
+ * Keep false until one supervised live write succeeds (companions / Power pairing).
  * Mock remains the default (`AQUALAMP_MOCK=1`).
  */
 export const PROTOCOL_CAPTURES_READY = false;
 
-/** App percent 0–100 maps to wire byte 0–235 (`0xeb` = 100%). */
+/**
+ * App percent 0–100 → wire byte 0–235 (`0xeb` = 100%).
+ * Confirmed on Red in Capture #3 (`20261017-125735`) and UV/Power in #2.
+ */
 export const CHANNEL_WIRE_MAX = 235;
+
+/**
+ * Exact Red-only CustomMode wire bytes at checklist percents (Capture #3).
+ * Matches `percentToWire(p)` for each key.
+ */
+export const RED_PERCENT_WIRE = {
+  0: 0x00,
+  25: 0x3b, // 59
+  50: 0x76, // 118
+  75: 0xb0, // 176
+  100: 0xeb, // 235
+} as const;
 
 /**
  * Evidence from Android bugreports + HCI snoops (2026-10-17).
@@ -41,8 +56,10 @@ export const DEVICE_FROM_LOGS = {
   characteristicUuidShort: "fff2",
   /** Notify/read companion on same service (value handle 0x0012). */
   notifyCharacteristicUuidShort: "fff1",
-  /** Wire max for channel / power bytes (Capture #2). */
+  /** Wire max for channel / power bytes (Capture #2 + #3). */
   channelWireMax: CHANNEL_WIRE_MAX,
+  /** Capture folder that confirmed Red 0/25/50/75/100 ladder. */
+  redLadderCapture: "20261017-125735",
 } as const;
 
 /**
@@ -55,6 +72,12 @@ export const APP_CHANNELS = ["R", "G", "B", "UV", "Fan", "Power"] as const;
  * Raw ATT Write Command payloads observed on handle 0x0010.
  */
 export const OBSERVED_WRITE_PAYLOADS: Record<string, string> = {
+  // --- Red ladder (Capture #3, G=B=UV=0) — exact checklist stops ---
+  "red-0": "fb f9 00 00 00 00 55 55",
+  "red-25": "fb f9 3b 00 00 00 55 55",
+  "red-50": "fb f9 76 00 00 00 55 55",
+  "red-75": "fb f9 b0 00 00 00 55 55",
+  "red-100": "fb f9 eb 00 00 00 55 55",
   // --- CustomMode R/G/B (Capture #1) ---
   "custom-mode-red": "fb f9 eb 00 00 00 55 55",
   "custom-mode-green": "fb f9 00 eb 00 00 55 55",
@@ -79,21 +102,26 @@ export const OBSERVED_WRITE_PAYLOADS: Record<string, string> = {
 };
 
 /**
- * Intent-labeled capture table.
+ * Intent-labeled capture table (encoder targets).
  */
 export const PROTOCOL_CAPTURES: Record<string, string> = {
-  "custom-mode-red": "fb f9 eb 00 00 00 55 55",
+  "red-0": "fb f9 00 00 00 00 55 55",
+  "red-25": "fb f9 3b 00 00 00 55 55",
+  "red-50": "fb f9 76 00 00 00 55 55",
+  "red-75": "fb f9 b0 00 00 00 55 55",
+  "red-100": "fb f9 eb 00 00 00 55 55",
   "custom-mode-green": "fb f9 00 eb 00 00 55 55",
   "custom-mode-blue": "fb f9 00 00 eb 00 55 55",
-  "custom-mode-rgb-zero": "fb f9 00 00 00 00 55 55",
   "uv-100": "fb f9 00 00 00 eb 55 55",
   "power-0": "fc 00 55 55 55 55 55 55",
-  "red-100": "fb f9 eb 00 00 00 55 55",
   "blue-100": "fb f9 00 00 eb 00 55 55",
   "all-off": "fb f9 00 00 00 00 55 55",
 };
 
-/** Convert app 0–100 percent to wire byte (0–235). */
+/**
+ * Convert app 0–100 percent to wire byte (0–235).
+ * Capture #3 Red ladder: 0→0, 25→59, 50→118, 75→176, 100→235.
+ */
 export function percentToWire(percent: number): number {
   if (!Number.isFinite(percent)) return 0;
   const p = Math.max(0, Math.min(100, percent));

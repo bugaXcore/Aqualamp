@@ -9,6 +9,8 @@ import {
   PROTOCOL_CAPTURES_READY,
   DEVICE_FROM_LOGS,
   CHANNEL_WIRE_MAX,
+  RED_PERCENT_WIRE,
+  PROTOCOL_CAPTURES,
 } from "../src/protocol.js";
 import { normalizeChannels } from "../src/types.js";
 
@@ -42,12 +44,23 @@ describe("encodeChannels", () => {
     assert.equal(DEVICE_FROM_LOGS.characteristicUuidShort, "fff2");
   });
 
-  it("uses linear 0–100 → 0–235 scale matching Capture #2 anchors", () => {
-    assert.equal(percentToWire(0), 0);
-    assert.equal(percentToWire(25), 59); // 0x3b — seen on UV + Power ladders
-    assert.equal(percentToWire(100), 235); // 0xeb
+  it("uses linear 0–100 → 0–235 scale matching Capture #3 Red ladder", () => {
+    assert.equal(percentToWire(0), RED_PERCENT_WIRE[0]);
+    assert.equal(percentToWire(25), RED_PERCENT_WIRE[25]);
+    assert.equal(percentToWire(50), RED_PERCENT_WIRE[50]);
+    assert.equal(percentToWire(75), RED_PERCENT_WIRE[75]);
+    assert.equal(percentToWire(100), RED_PERCENT_WIRE[100]);
     assert.equal(wireToPercent(235), 100);
     assert.equal(wireToPercent(59), 25);
+    assert.equal(CHANNEL_WIRE_MAX, 235);
+  });
+
+  it("encodes Capture #3 Red checklist frames exactly", () => {
+    for (const pct of [0, 25, 50, 75, 100] as const) {
+      const buf = encodeChannels(normalizeChannels({ red: pct }));
+      const expected = PROTOCOL_CAPTURES[`red-${pct}`].split(" ").map((h) => parseInt(h, 16));
+      assert.deepEqual([...buf], expected);
+    }
   });
 
   it("builds CustomMode research frames matching observed layout", () => {

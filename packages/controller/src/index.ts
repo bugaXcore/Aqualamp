@@ -6,6 +6,7 @@ export {
   percentToWire,
   wireToPercent,
   CHANNEL_WIRE_MAX,
+  RED_PERCENT_WIRE,
   PROTOCOL_CAPTURES,
   PROTOCOL_CAPTURES_READY,
   DEVICE_FROM_LOGS,
