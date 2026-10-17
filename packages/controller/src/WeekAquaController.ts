@@ -231,7 +231,7 @@ export class WeekAquaController extends EventEmitter {
 
       // Intel WinRT: must fully stop scanning before connect, or connect fails.
       await this.noble.stopScanningAsync().catch(() => undefined);
-      await delay(300);
+      await delay(1200);
 
       this.setState("connecting");
       await this.connectPeripheralWithRetry(this.peripheral);
@@ -285,7 +285,7 @@ export class WeekAquaController extends EventEmitter {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         await noble.stopScanningAsync().catch(() => undefined);
-        await delay(attempt === 1 ? 200 : 800);
+        await delay(attempt === 1 ? 1000 : 1500);
         await withTimeout(peripheral.connectAsync(), this.timeoutMs, "BLE connect");
         return;
       } catch (err) {
@@ -358,20 +358,45 @@ export class WeekAquaController extends EventEmitter {
 
     return new Promise<NoblePeripheral>((resolve, reject) => {
       let settled = false;
+      /** connectable+MAC but missing fff0 in this packet — use if no better ad arrives. */
+      let fallback: NoblePeripheral | null = null;
+      let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const finish = (p: NoblePeripheral) => {
+        if (settled) return;
+        settled = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        cleanup();
+        resolve(p);
+      };
 
       const onDiscover = (peripheral: unknown) => {
         if (settled) return;
         const p = peripheral as NoblePeripheral;
-        if (!this.peripheralMatches(p, targetHex, serviceNeedle)) return;
-        settled = true;
-        cleanup();
-        // Caller awaits stopScanning before connect — just resolve the handle.
-        resolve(p);
+        // Ignore non-connectable scan responses (Stav: often connectable:false without fff0).
+        if (p.connectable !== true) return;
+        if (!this.isTargetPeripheral(p, targetHex)) return;
+
+        if (this.advertisesService(p, serviceNeedle)) {
+          finish(p);
+          return;
+        }
+
+        // Prefer waiting briefly for a connectable+fff0 packet.
+        if (!fallback) {
+          fallback = p;
+          fallbackTimer = setTimeout(() => {
+            if (!settled && fallback) finish(fallback);
+          }, 4000);
+        } else if ((p.rssi ?? -999) > (fallback.rssi ?? -999)) {
+          fallback = p;
+        }
       };
 
       const onError = (err: unknown) => {
         if (settled) return;
         settled = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
         cleanup();
         reject(err instanceof Error ? err : new Error(String(err)));
       };
@@ -382,10 +407,10 @@ export class WeekAquaController extends EventEmitter {
       };
 
       noble.on("discover", onDiscover);
-      // allowDuplicates helps catch intermittent advertisers on Windows.
       void noble.startScanningAsync([], true).catch((err) => {
         if (settled) return;
         settled = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
         cleanup();
         reject(
           new Error(
@@ -396,28 +421,17 @@ export class WeekAquaController extends EventEmitter {
     });
   }
 
-  private peripheralMatches(
-    p: NoblePeripheral,
-    targetHex: string,
-    serviceNeedle: string,
-  ): boolean {
+  private isTargetPeripheral(p: NoblePeripheral, targetHex: string): boolean {
     const addrHex = normalizeBleAddr(p.address || "");
     const idHex = normalizeBleAddr(p.id || "");
     if (targetHex && (addrHex === targetHex || idHex === targetHex)) return true;
-
     const name = (p.advertisement?.localName || "").toLowerCase();
-    if (name.includes("b3.0-s300") || name.includes("s300pro")) return true;
+    return name.includes("b3.0-s300") || name.includes("s300pro");
+  }
 
+  private advertisesService(p: NoblePeripheral, serviceNeedle: string): boolean {
     const services = p.advertisement?.serviceUuids ?? [];
-    if (
-      targetHex &&
-      (addrHex === targetHex || idHex === targetHex) === false &&
-      services.some((u) => this.normalizeUuid(u) === serviceNeedle)
-    ) {
-      // Service-only match is too loose alone — require MAC when we have one.
-      return false;
-    }
-    return false;
+    return services.some((u) => this.normalizeUuid(u) === serviceNeedle);
   }
 
   private handleUnexpectedDisconnect(error: Error): void {
