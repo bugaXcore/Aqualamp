@@ -59,48 +59,59 @@ try {
   const page = await browser.newPage();
   await page.goto(webUrl, { waitUntil: "networkidle0", timeout: 20000 });
 
-  // Clear storage so starters re-seed on reload
+  // Leave v1 junk in place; only remove v2 so we prove a cold v2 seed
+  // (Stav's browser still has v1 — new key alone is enough for him).
   await page.evaluate(() => {
-    localStorage.removeItem("aqualamp.dayPresets.v1");
+    localStorage.setItem(
+      "aqualamp.dayPresets.v1",
+      JSON.stringify({
+        version: 1,
+        presets: [
+          {
+            id: "legacy",
+            name: "Preset 1",
+            mode: "schedule",
+            constantChannels: { red: 0, green: 0, blue: 0, uv: 0 },
+            keyframes: [],
+            snap: "free",
+            interpolation: "linear",
+          },
+        ],
+      }),
+    );
+    localStorage.removeItem("aqualamp.dayPresets.v2");
   });
   await page.reload({ waitUntil: "networkidle0" });
   await ensureConnected(page);
 
   await page.waitForFunction(
-    () => document.body.innerText.includes("The Jewel Canopy"),
+    () =>
+      document.body.innerText.includes("The Bioactive 24/7") &&
+      document.body.innerText.includes("The Jewel Canopy") &&
+      document.body.innerText.includes("The High-Contrast Scape") &&
+      document.body.innerText.includes("Crisp Photography") &&
+      document.body.innerText.includes("Lunar Viewing"),
     { timeout: 10000 },
   );
+  // Confirm v2 was written and v1 was ignored
+  const keys = await page.evaluate(() => ({
+    v1: localStorage.getItem("aqualamp.dayPresets.v1")?.slice(0, 80),
+    v2: JSON.parse(localStorage.getItem("aqualamp.dayPresets.v2") || "null"),
+  }));
+  if (!keys.v2 || keys.v2.version !== 2 || keys.v2.presets?.length !== 5) {
+    throw new Error(`v2 seed failed: ${JSON.stringify(keys)}`);
+  }
+  console.log("v2 seeded with", keys.v2.presets.length, "presets (v1 leftover ignored)");
+
   await new Promise((r) => setTimeout(r, 600));
-
-  // Select Jewel Canopy so description detail is visible
   await page.evaluate(() => {
-    const row = [...document.querySelectorAll("[role='button']")].find((el) =>
-      (el.textContent || "").includes("The Jewel Canopy"),
-    );
-    row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.querySelector(".presets-panel")?.scrollIntoView({ block: "start" });
   });
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 400));
 
-  const listPath = path.join(mediaDir, "presets-with-descriptions.png");
-  await page.screenshot({ path: listPath, fullPage: true });
-  console.log("wrote", listPath);
-
-  // Select Bioactive schedule + scroll timeline
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll("[role='button']")].find((el) =>
-      (el.textContent || "").includes("Bioactive 24/7"),
-    );
-    row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-  await new Promise((r) => setTimeout(r, 500));
-  await page.evaluate(() => {
-    document.querySelector(".timeline-panel")?.scrollIntoView({ block: "center" });
-  });
-  await new Promise((r) => setTimeout(r, 500));
-
-  const bioPath = path.join(mediaDir, "bioactive-schedule-seeded.png");
-  await page.screenshot({ path: bioPath, fullPage: true });
-  console.log("wrote", bioPath);
+  const v2Path = path.join(mediaDir, "presets-reseeding-v2.png");
+  await page.screenshot({ path: v2Path, fullPage: true });
+  console.log("wrote", v2Path);
 } finally {
   await browser.close();
 }

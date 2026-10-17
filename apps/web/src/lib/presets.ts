@@ -26,12 +26,17 @@ export type DayPreset = {
 };
 
 export type PresetStore = {
-  version: 1;
+  /** Bump when starter library / schema must re-seed for existing browsers. */
+  version: 2;
   presets: DayPreset[];
 };
 
-/** localStorage key — clear this to re-seed starter presets. */
-export const PRESETS_STORAGE_KEY = "aqualamp.dayPresets.v1";
+/**
+ * localStorage key. v2 forces a fresh seed for anyone who still has a
+ * custom empty shell under v1 — hard-refresh is enough (no DevTools).
+ * Clear this key to re-seed starters again.
+ */
+export const PRESETS_STORAGE_KEY = "aqualamp.dayPresets.v2";
 
 export const ZERO_CHANNELS: Channels = {
   red: 0,
@@ -67,8 +72,8 @@ function kf(
 }
 
 /**
- * Built-in starter library. Applied only when localStorage is missing
- * or the stored presets array is empty. Clear `PRESETS_STORAGE_KEY` to reset.
+ * Built-in starter library. Seeded into `aqualamp.dayPresets.v2` when that
+ * key is missing/empty. Clear `PRESETS_STORAGE_KEY` (or bump the key) to reset.
  */
 export const STARTER_PRESETS: DayPreset[] = [
   {
@@ -238,8 +243,9 @@ export function interpolateAt(
 }
 
 /**
- * Load presets from localStorage. When missing or empty, seed STARTER_PRESETS
- * and persist them. To force re-seed: clear `PRESETS_STORAGE_KEY` and reload.
+ * Load presets from localStorage (`aqualamp.dayPresets.v2`).
+ * Missing / wrong version / empty → seed STARTER_PRESETS.
+ * v1 keys are ignored so prior empty shells do not block starters.
  */
 export function loadPresets(): DayPreset[] {
   try {
@@ -248,7 +254,7 @@ export function loadPresets(): DayPreset[] {
       return seedStarters();
     }
     const parsed = JSON.parse(raw) as PresetStore;
-    if (parsed?.version !== 1 || !Array.isArray(parsed.presets)) {
+    if (parsed?.version !== 2 || !Array.isArray(parsed.presets)) {
       return seedStarters();
     }
     if (parsed.presets.length === 0) {
@@ -267,7 +273,7 @@ function seedStarters(): DayPreset[] {
 }
 
 export function savePresets(presets: DayPreset[]): void {
-  const store: PresetStore = { version: 1, presets };
+  const store: PresetStore = { version: 2, presets };
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
 }
 
