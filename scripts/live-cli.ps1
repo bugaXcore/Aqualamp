@@ -4,11 +4,9 @@
   One-shot live (or dry) CLI write to the Week Aqua lamp.
 
 .EXAMPLE
-  # Safest dry-run (mock — does not touch BLE)
   powershell -File scripts\live-cli.ps1 -Red 25 -Mock
 
 .EXAMPLE
-  # Supervised live attempt (Windows often blocked — see docs)
   powershell -File scripts\live-cli.ps1 -Red 25
 #>
 param(
@@ -32,13 +30,14 @@ Write-Host "  Char       : FFF2 (write without response)"
 Write-Host "  Red        : $Red  (wire = round(red*235/100))"
 Write-Host ""
 
-# Show expected frame without needing BLE
 $wire = [int][Math]::Round($Red * 235 / 100.0)
 $hex = ("fb f9 {0:x2} 00 00 00 55 55" -f $wire)
 Write-Host ("Expected ATT payload: " + $hex) -ForegroundColor Green
 
 if ($WhatIfEncodeOnly) { exit 0 }
 
+# Force process env so .env placeholders (XX:XX / MOCK=1) cannot win.
+# loadEnvFile does not override existing keys; npm children inherit these.
 $env:LIGHT_ADDRESS = "C8:47:80:70:BB:07"
 $env:SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 $env:CHARACTERISTIC_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
@@ -51,11 +50,29 @@ if ($Mock) {
 } else {
   $env:AQUALAMP_MOCK = "0"
   $env:AQUALAMP_ALLOW_HARDWARE = "1"
-  Write-Host "Mode: LIVE (requires working @abandonware/noble)" -ForegroundColor Yellow
+  Write-Host "Mode: LIVE" -ForegroundColor Yellow
   Write-Host "Close Week Aqua on the phone first." -ForegroundColor Yellow
 }
 
 Write-Host ""
+Write-Host "Env check:" -ForegroundColor DarkGray
+Write-Host ("  AQUALAMP_MOCK=" + $env:AQUALAMP_MOCK)
+Write-Host ("  AQUALAMP_ALLOW_HARDWARE=" + $env:AQUALAMP_ALLOW_HARDWARE)
+Write-Host ("  LIGHT_ADDRESS=" + $env:LIGHT_ADDRESS)
+Write-Host ("  SERVICE_UUID=" + $env:SERVICE_UUID)
+Write-Host ("  CHARACTERISTIC_UUID=" + $env:CHARACTERISTIC_UUID)
+Write-Host ""
+Write-Host "Rebuilding controller (avoids stale dist/ gate)..." -ForegroundColor DarkGray
+& npm run build -w @aqualamp/controller
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Controller build failed." -ForegroundColor Red
+  exit $LASTEXITCODE
+}
+
+Write-Host ""
 Write-Host "Running: npm run cli -- --red $Red --green 0 --blue 0 --white 0"
-& npm run cli -- --red $Red --green 0 --blue 0 --white 0
+
+# Use cmd so npm.cmd reliably sees the same environment block.
+$argLine = "--red $Red --green 0 --blue 0 --white 0"
+cmd /c "npm run cli -- $argLine"
 exit $LASTEXITCODE

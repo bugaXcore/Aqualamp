@@ -2,11 +2,11 @@ import type { Channels } from "./types.js";
 
 /**
  * Protocol readiness gate.
- * Scale + CustomMode/Power frames confirmed through Capture #3.
- * Keep false until one supervised live write succeeds (companions / Power pairing).
- * Mock remains the default (`AQUALAMP_MOCK=1`).
+ * UUIDs (FFF0/FFF2), CustomMode `fb f9 R G B UV 55 55`, scale 0–100→0–235,
+ * and Power `fc` are confirmed from Captures #1–#3.
+ * Everyday runs still default to mock via `AQUALAMP_MOCK=1`.
  */
-export const PROTOCOL_CAPTURES_READY = false;
+export const PROTOCOL_CAPTURES_READY = true;
 
 /**
  * App percent 0–100 → wire byte 0–235 (`0xeb` = 100%).
@@ -194,10 +194,10 @@ export function assertProtocolReadyForHardware(): void {
     process.env.AQUALAMP_ALLOW_HARDWARE?.toLowerCase() === "true";
   if (!PROTOCOL_CAPTURES_READY && !force) {
     throw new Error(
-      "AquaLamp protocol not ready for hardware writes (BLOCKER). " +
-        "UUIDs/frames/scale are known, but live BLE is not verified yet. " +
-        "For a supervised one-shot test set AQUALAMP_ALLOW_HARDWARE=1 with " +
-        "AQUALAMP_MOCK=0. Otherwise use AQUALAMP_MOCK=1. " +
+      "AquaLamp protocol gate is closed (BLOCKER). " +
+        "Set PROTOCOL_CAPTURES_READY or AQUALAMP_ALLOW_HARDWARE=1 for live writes, " +
+        "or use AQUALAMP_MOCK=1. UUIDs (FFF0/FFF2) and CustomMode/Power frames " +
+        "are already known — this is not a missing-UUID error. " +
         "See packages/controller/docs/protocol.md.",
     );
   }

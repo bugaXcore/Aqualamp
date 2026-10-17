@@ -1,6 +1,6 @@
 # AquaLamp BLE protocol notes
 
-**Status:** Phase 0 — Capture #3 confirmed Red 0/25/50/75/100 → wire 0/`3b`/`76`/`b0`/`eb`. Scale **0–100 → 0–235**. Live BLE not verified. `PROTOCOL_CAPTURES_READY = false`. Mock remains default.
+**Status:** Phase 0 — Capture #3 confirmed Red ladder + scale **0–100 → 0–235**. `PROTOCOL_CAPTURES_READY = true`. Everyday **`AQUALAMP_MOCK=1`** still recommended until a live Red 25 is confirmed on the lamp.
 
 Canonical analysis: Project store `docs/phase-0-from-logs.md`.  
 Public notes: Project store `docs/s300pro-research.md`.

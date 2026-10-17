@@ -35,8 +35,8 @@ describe("encodeChannels", () => {
     assert.deepEqual(channels, { red: 100, green: 0, blue: 41, white: 0 });
   });
 
-  it("keeps hardware gate closed until live BLE is verified", () => {
-    assert.equal(PROTOCOL_CAPTURES_READY, false);
+  it("opens hardware gate now that UUIDs/frames/scale are known", () => {
+    assert.equal(PROTOCOL_CAPTURES_READY, true);
   });
 
   it("records GATT UUIDs from full HCI snoop", () => {
