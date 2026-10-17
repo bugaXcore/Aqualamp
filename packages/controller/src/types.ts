@@ -21,8 +21,14 @@ export type ControllerOptions = {
   mock?: boolean;
   /** Optional auto-reconnect with backoff. Default off. */
   autoReconnect?: boolean;
-  /** Scan / connect / write timeout in ms. */
+  /** Scan / GATT discovery / write timeout in ms. Default 45000. */
   timeoutMs?: number;
+  /**
+   * Per-attempt GATT connect timeout in ms (noble connectAsync).
+   * Default: env AQUALAMP_CONNECT_TIMEOUT_MS or 12000.
+   * Kept shorter than scan so the CLI cannot sit on "connecting" forever.
+   */
+  connectTimeoutMs?: number;
 };
 
 export type ControllerEvents = {

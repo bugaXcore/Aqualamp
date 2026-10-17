@@ -42,6 +42,10 @@ $env:LIGHT_ADDRESS = "C8:47:80:70:BB:07"
 $env:SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 $env:CHARACTERISTIC_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
 $env:AQUALAMP_AUTO_RECONNECT = "0"
+# Per-attempt GATT connect budget (scan still uses controller default ~45s).
+if (-not $env:AQUALAMP_CONNECT_TIMEOUT_MS) {
+  $env:AQUALAMP_CONNECT_TIMEOUT_MS = "12000"
+}
 
 if ($Mock) {
   $env:AQUALAMP_MOCK = "1"
@@ -52,12 +56,14 @@ if ($Mock) {
   $env:AQUALAMP_ALLOW_HARDWARE = "1"
   Write-Host "Mode: LIVE" -ForegroundColor Yellow
   Write-Host "Close Week Aqua on the phone first." -ForegroundColor Yellow
+  Write-Host "Prefer CSR USB dongle only: disable Intel Wireless Bluetooth in Device Manager." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Env check:" -ForegroundColor DarkGray
 Write-Host ("  AQUALAMP_MOCK=" + $env:AQUALAMP_MOCK)
 Write-Host ("  AQUALAMP_ALLOW_HARDWARE=" + $env:AQUALAMP_ALLOW_HARDWARE)
+Write-Host ("  AQUALAMP_CONNECT_TIMEOUT_MS=" + $env:AQUALAMP_CONNECT_TIMEOUT_MS)
 Write-Host ("  LIGHT_ADDRESS=" + $env:LIGHT_ADDRESS)
 Write-Host ("  SERVICE_UUID=" + $env:SERVICE_UUID)
 Write-Host ("  CHARACTERISTIC_UUID=" + $env:CHARACTERISTIC_UUID)

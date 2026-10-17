@@ -56,6 +56,13 @@ function envFlag(name: string, fallback = false): boolean {
   return raw === "1" || raw.toLowerCase() === "true" || raw.toLowerCase() === "yes";
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -85,6 +92,7 @@ export class WeekAquaController extends EventEmitter {
   private readonly mock: boolean;
   private readonly autoReconnect: boolean;
   private readonly timeoutMs: number;
+  private readonly connectTimeoutMs: number;
 
   private state: ConnectionState = "disconnected";
   private channels: Channels = { ...DEFAULT_CHANNELS };
@@ -109,6 +117,9 @@ export class WeekAquaController extends EventEmitter {
     this.autoReconnect = options.autoReconnect ?? false;
     // Windows scans can take a while; lamp advertises intermittently.
     this.timeoutMs = options.timeoutMs ?? 45_000;
+    // Connect hangs easily on WinRT — keep per-attempt budget short.
+    this.connectTimeoutMs =
+      options.connectTimeoutMs ?? envInt("AQUALAMP_CONNECT_TIMEOUT_MS", 12_000);
   }
 
   getState(): ConnectionState {
@@ -267,8 +278,10 @@ export class WeekAquaController extends EventEmitter {
       const error = err instanceof Error ? err : new Error(String(err));
       const hint =
         /could not connect|timed out|unreachable/i.test(error.message)
-          ? " Hint: force-close Week Aqua on the phone, keep the lamp near the PC, " +
-            "do not pair the lamp in Windows Settings, toggle PC Bluetooth off/on once."
+          ? " Hint: phone BT off + force-close Week Aqua; do not pair lamp in Windows; " +
+            "disable Intel(R) Wireless Bluetooth in Device Manager so only the CSR " +
+            "USB dongle (Generic Bluetooth Radio VID_0A12) is active; prefer a USB 2.0 " +
+            "port and keep the lamp away from the USB3 case ports (RF interference)."
           : "";
       const wrapped = new Error(error.message + hint);
       this.teardownBle();
@@ -286,14 +299,25 @@ export class WeekAquaController extends EventEmitter {
       try {
         await noble.stopScanningAsync().catch(() => undefined);
         await delay(attempt === 1 ? 1000 : 1500);
-        await withTimeout(peripheral.connectAsync(), this.timeoutMs, "BLE connect");
+        console.log(
+          `[connect] attempt ${attempt}/2 (timeout ${this.connectTimeoutMs}ms)`,
+        );
+        await withTimeout(
+          peripheral.connectAsync(),
+          this.connectTimeoutMs,
+          "BLE connect",
+        );
         return;
       } catch (err) {
         lastErr = err instanceof Error ? err : new Error(String(err));
         try {
-          await peripheral.disconnectAsync();
+          await withTimeout(
+            peripheral.disconnectAsync(),
+            2_000,
+            "BLE disconnect-after-failed-connect",
+          );
         } catch {
-          /* ignore */
+          /* ignore — WinRT may already be wedged */
         }
       }
     }

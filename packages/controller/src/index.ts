@@ -32,11 +32,18 @@ export function loadControllerConfigFromEnv(): {
   characteristicUuid: string;
   mock: boolean;
   autoReconnect: boolean;
+  connectTimeoutMs: number;
 } {
   const flag = (name: string, fallback: boolean) => {
     const raw = process.env[name];
     if (raw === undefined) return fallback;
     return raw === "1" || raw.toLowerCase() === "true" || raw.toLowerCase() === "yes";
+  };
+  const intEnv = (name: string, fallback: number) => {
+    const raw = process.env[name];
+    if (raw === undefined || raw === "") return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
   };
 
   return {
@@ -45,5 +52,6 @@ export function loadControllerConfigFromEnv(): {
     characteristicUuid: process.env.CHARACTERISTIC_UUID ?? "YYYY",
     mock: flag("AQUALAMP_MOCK", true),
     autoReconnect: flag("AQUALAMP_AUTO_RECONNECT", false),
+    connectTimeoutMs: intEnv("AQUALAMP_CONNECT_TIMEOUT_MS", 12_000),
   };
 }

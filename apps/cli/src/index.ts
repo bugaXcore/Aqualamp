@@ -64,17 +64,18 @@ async function main(): Promise<void> {
     await controller.setChannels(channels);
     console.log("[ok] setChannels", controller.getChannels());
     await controller.disconnect();
-    process.exitCode = 0;
+    process.exit(0);
   } catch (err) {
     console.error(
       `[fail] ${err instanceof Error ? err.message : String(err)}`,
     );
-    process.exitCode = 1;
     try {
       await controller.disconnect();
     } catch {
       /* ignore */
     }
+    // Force exit: WinRT/noble can leave open handles after a hung connect.
+    process.exit(1);
   }
 }
 
