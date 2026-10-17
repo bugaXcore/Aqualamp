@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChannelDial } from "@/components/ChannelDial";
-import { DayTimeline } from "@/components/DayTimeline";
+import {
+  DayTimeline,
+  type TimelineWorkspaceMode,
+} from "@/components/DayTimeline";
 import { PresetsPanel } from "@/components/PresetsPanel";
 import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,11 @@ import {
   type PresetMode,
   type SnapMode,
 } from "@/lib/presets";
+
+function nowMinutes(): number {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
 
 const CHANNEL_META: {
   key: keyof Channels;
@@ -39,12 +47,17 @@ export default function App() {
     null,
   );
   const [playheadMinutes, setPlayheadMinutes] = useState(12 * 60);
+  const [workspaceMode, setWorkspaceMode] =
+    useState<TimelineWorkspaceMode>("edit");
   const [hydrated, setHydrated] = useState(false);
 
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
+  const isLive = workspaceMode === "live";
   const selectedPreset =
     presets.find((p) => p.id === selectedPresetId) ?? null;
+  const setChannelsRef = useRef(bridge.setChannels);
+  setChannelsRef.current = bridge.setChannels;
 
   useEffect(() => {
     const loaded = loadPresets();
@@ -58,24 +71,44 @@ export default function App() {
   }, [presets, hydrated]);
 
   useEffect(() => {
+    if (isLive) return;
     setLocal(bridge.channels);
-  }, [bridge.channels]);
+  }, [bridge.channels, isLive]);
 
-  /** When scrubbing with no keyframe selected (schedule) or always in constant, sync dials. */
+  /** LIVE: CTI follows wall clock. */
+  useEffect(() => {
+    if (!isLive) return;
+    const tick = () => {
+      setPlayheadMinutes(nowMinutes());
+      setSelectedKeyframeId(null);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [isLive]);
+
+  /** Drive dials (+ bridge in LIVE) from playhead when a preset is active. */
   useEffect(() => {
     if (!selectedPreset) return;
+    if (isLive) {
+      const channels = interpolateAt(selectedPreset, playheadMinutes);
+      setLocal(channels);
+      setChannelsRef.current(channels);
+      return;
+    }
     if (selectedPreset.mode === "constant") {
       setLocal({ ...selectedPreset.constantChannels });
       return;
     }
     if (selectedKeyframeId) {
-      const kf = selectedPreset.keyframes.find((k) => k.id === selectedKeyframeId);
+      const kf = selectedPreset.keyframes.find(
+        (k) => k.id === selectedKeyframeId,
+      );
       if (kf) setLocal({ ...kf.channels });
       return;
     }
     setLocal(interpolateAt(selectedPreset, playheadMinutes));
-  }, [selectedPreset, selectedKeyframeId, playheadMinutes]);
-
+  }, [selectedPreset, selectedKeyframeId, playheadMinutes, isLive]);
   const patchPreset = (id: string, patch: (p: DayPreset) => DayPreset) => {
     setPresets((prev) => prev.map((p) => (p.id === id ? patch(p) : p)));
   };
@@ -86,6 +119,7 @@ export default function App() {
   };
 
   const updateChannel = (key: keyof Channels, value: number) => {
+    if (isLive) return;
     if (!selectedPreset) {
       const next = { ...local, [key]: value };
       pushToBridge(next);
@@ -171,6 +205,7 @@ export default function App() {
   };
 
   const handleAddKeyframe = (minutes: number, channels: Channels) => {
+    if (isLive) return;
     if (!selectedPreset || selectedPreset.mode !== "schedule") return;
     const snapped = clampMinutes(minutes, selectedPreset.snap);
     const existing = selectedPreset.keyframes.find((k) => k.minutes === snapped);
@@ -191,7 +226,7 @@ export default function App() {
   };
 
   const handleMoveKeyframe = (id: string, minutes: number) => {
-    if (!selectedPreset) return;
+    if (isLive || !selectedPreset) return;
     const snapped = clampMinutes(minutes, selectedPreset.snap);
     patchPreset(selectedPreset.id, (p) => ({
       ...p,
@@ -203,18 +238,40 @@ export default function App() {
   };
 
   const dialHint = (() => {
+    if (isLive) {
+      if (!selectedPreset) {
+        return "LIVE — dials locked · select a preset for clock-synced output.";
+      }
+      return selectedPreset.mode === "constant"
+        ? "LIVE — constant levels · dials are read-only telemetry."
+        : `LIVE — ${minsToTime(playheadMinutes)} · dials show interpolated output.`;
+    }
     if (!selectedPreset) return "Manual mix — no day preset selected.";
     if (selectedPreset.mode === "constant") {
-      return "Editing constant levels for this preset.";
+      return "EDIT — constant levels for this preset.";
     }
     if (selectedKeyframeId) {
-      const kf = selectedPreset.keyframes.find((k) => k.id === selectedKeyframeId);
-      if (!kf) return "Editing keyframe.";
+      const kf = selectedPreset.keyframes.find(
+        (k) => k.id === selectedKeyframeId,
+      );
+      if (!kf) return "EDIT — keyframe.";
       const label = kf.label ? ` (${kf.label})` : "";
-      return `Editing keyframe at ${minsToTime(kf.minutes)}${label}.`;
+      return `EDIT — keyframe at ${minsToTime(kf.minutes)}${label}.`;
     }
-    return `Scrubbing ${minsToTime(playheadMinutes)} — dials create a keyframe here.`;
+    return `EDIT — scrubbing ${minsToTime(playheadMinutes)} · dials write a keyframe here.`;
   })();
+
+  const handleWorkspaceMode = (mode: TimelineWorkspaceMode) => {
+    setWorkspaceMode(mode);
+    if (mode === "live") {
+      setSelectedKeyframeId(null);
+      const mins = nowMinutes();
+      setPlayheadMinutes(mins);
+      if (selectedPreset) {
+        pushToBridge(interpolateAt(selectedPreset, mins));
+      }
+    }
+  };
 
   const mix = channelsToCss(local);
 
@@ -297,13 +354,16 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-10 overflow-visible px-3 sm:gap-12 lg:grid-cols-4 lg:gap-8 lg:px-4">
+            <div
+              className={`grid grid-cols-2 gap-10 overflow-visible px-3 sm:gap-12 lg:grid-cols-4 lg:gap-8 lg:px-4 ${isLive ? "pointer-events-none" : ""}`}
+            >
               {CHANNEL_META.map((ch) => (
                 <ChannelDial
                   key={ch.key}
                   label={ch.label}
                   value={local[ch.key]}
                   accent={ch.accent}
+                  disabled={isLive}
                   onChange={(v) => updateChannel(ch.key, v)}
                 />
               ))}
@@ -342,7 +402,10 @@ export default function App() {
                 preset={selectedPreset}
                 selectedKeyframeId={selectedKeyframeId}
                 playheadMinutes={playheadMinutes}
+                workspaceMode={workspaceMode}
+                onWorkspaceModeChange={handleWorkspaceMode}
                 onScrub={(mins) => {
+                  if (isLive) return;
                   setPlayheadMinutes(mins);
                   setSelectedKeyframeId(null);
                   if (selectedPreset) {
@@ -350,6 +413,7 @@ export default function App() {
                   }
                 }}
                 onSelectKeyframe={(id) => {
+                  if (isLive) return;
                   setSelectedKeyframeId(id);
                   if (!id || !selectedPreset) return;
                   const kf = selectedPreset.keyframes.find((k) => k.id === id);
@@ -363,37 +427,39 @@ export default function App() {
               />
             </div>
 
-            {selectedPreset?.mode === "schedule" && selectedKeyframeId && (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    patchPreset(selectedPreset.id, (p) => ({
-                      ...p,
-                      keyframes: p.keyframes.filter(
-                        (k) => k.id !== selectedKeyframeId,
-                      ),
-                    }));
-                    setSelectedKeyframeId(null);
-                    pushToBridge(
-                      interpolateAt(
-                        {
-                          ...selectedPreset,
-                          keyframes: selectedPreset.keyframes.filter(
-                            (k) => k.id !== selectedKeyframeId,
-                          ),
-                        },
-                        playheadMinutes,
-                      ),
-                    );
-                  }}
-                >
-                  Delete keyframe
-                </Button>
-              </div>
-            )}
+            {!isLive &&
+              selectedPreset?.mode === "schedule" &&
+              selectedKeyframeId && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      patchPreset(selectedPreset.id, (p) => ({
+                        ...p,
+                        keyframes: p.keyframes.filter(
+                          (k) => k.id !== selectedKeyframeId,
+                        ),
+                      }));
+                      setSelectedKeyframeId(null);
+                      pushToBridge(
+                        interpolateAt(
+                          {
+                            ...selectedPreset,
+                            keyframes: selectedPreset.keyframes.filter(
+                              (k) => k.id !== selectedKeyframeId,
+                            ),
+                          },
+                          playheadMinutes,
+                        ),
+                      );
+                    }}
+                  >
+                    Delete keyframe
+                  </Button>
+                </div>
+              )}
 
             {bridge.error && (
               <p className="text-center text-sm text-rose-200/90">{bridge.error}</p>

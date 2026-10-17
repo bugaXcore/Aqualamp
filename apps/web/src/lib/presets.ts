@@ -238,7 +238,9 @@ export function interpolateAt(
   }
 
   const span = p2Mins - p1Mins;
-  const progress = span <= 0 ? 0 : (t - p1Mins) / span;
+  const linear = span <= 0 ? 0 : (t - p1Mins) / span;
+  // Gentle ease between keyframes (smoothstep) — matches softened timeline curves
+  const progress = linear * linear * (3 - 2 * linear);
   return lerpChannels(p1.channels, p2.channels, progress);
 }
 
