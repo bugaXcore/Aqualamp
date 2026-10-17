@@ -239,6 +239,7 @@ export function DayTimeline({
                     );
                   }}
                 >
+                  {kf.label ? <title>{kf.label}</title> : null}
                   <rect x={x - 18} y={0} width={36} height={H} fill="transparent" />
                   <line
                     x1={x}

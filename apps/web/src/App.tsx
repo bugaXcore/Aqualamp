@@ -209,9 +209,9 @@ export default function App() {
     }
     if (selectedKeyframeId) {
       const kf = selectedPreset.keyframes.find((k) => k.id === selectedKeyframeId);
-      return kf
-        ? `Editing keyframe at ${minsToTime(kf.minutes)}.`
-        : "Editing keyframe.";
+      if (!kf) return "Editing keyframe.";
+      const label = kf.label ? ` (${kf.label})` : "";
+      return `Editing keyframe at ${minsToTime(kf.minutes)}${label}.`;
     }
     return `Scrubbing ${minsToTime(playheadMinutes)} — dials create a keyframe here.`;
   })();
@@ -332,6 +332,9 @@ export default function App() {
                 onModeChange={handleModeChange}
                 onSnapChange={(id, snap: SnapMode) =>
                   patchPreset(id, (p) => ({ ...p, snap }))
+                }
+                onDescriptionChange={(id, description) =>
+                  patchPreset(id, (p) => ({ ...p, description }))
                 }
               />
 

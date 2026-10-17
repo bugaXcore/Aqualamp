@@ -13,6 +13,7 @@ type Props = {
   onDelete: (id: string) => void;
   onModeChange: (id: string, mode: PresetMode) => void;
   onSnapChange: (id: string, snap: SnapMode) => void;
+  onDescriptionChange?: (id: string, description: string) => void;
 };
 
 export function PresetsPanel({
@@ -24,6 +25,7 @@ export function PresetsPanel({
   onDelete,
   onModeChange,
   onSnapChange,
+  onDescriptionChange,
 }: Props) {
   const selected = presets.find((p) => p.id === selectedId) ?? null;
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -62,11 +64,12 @@ export function PresetsPanel({
         <div className="mt-4 rounded-2xl border border-dashed border-teal-200/15 bg-depth-900/40 px-4 py-8 text-center">
           <p className="font-[Syne] text-sm text-teal-50/80">No presets yet</p>
           <p className="mt-2 text-xs text-teal-100/45">
-            Create an empty shell, then set constant levels or place keyframes on the timeline.
+            Create an empty shell, then set constant levels or place keyframes on
+            the timeline. Or clear localStorage and reload to restore starters.
           </p>
         </div>
       ) : (
-        <ul className="mt-4 flex flex-col gap-2">
+        <ul className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
           {presets.map((preset) => {
             const active = preset.id === selectedId;
             return (
@@ -82,7 +85,7 @@ export function PresetsPanel({
                     }
                   }}
                   className={cn(
-                    "group flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors",
+                    "group flex items-start gap-2 rounded-xl border px-3 py-2.5 transition-colors",
                     active
                       ? "border-teal-400/35 bg-teal-400/10"
                       : "border-teal-200/10 bg-depth-900/50 hover:border-teal-200/20",
@@ -107,7 +110,7 @@ export function PresetsPanel({
                     </form>
                   ) : (
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-[Syne] text-sm font-semibold text-teal-50/90">
+                      <div className="font-[Syne] text-sm font-semibold leading-snug text-teal-50/90">
                         {preset.name}
                       </div>
                       <div className="mt-0.5 font-mono text-[10px] tracking-wide text-teal-100/45 uppercase">
@@ -116,30 +119,37 @@ export function PresetsPanel({
                           ? ` · ${preset.keyframes.length} keyframe${preset.keyframes.length === 1 ? "" : "s"}`
                           : ""}
                       </div>
+                      {preset.description?.trim() ? (
+                        <p className="mt-1.5 text-[12px] leading-relaxed text-teal-100/60">
+                          {preset.description}
+                        </p>
+                      ) : null}
                     </div>
                   )}
-                  <button
-                    type="button"
-                    title="Rename"
-                    className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startRename(preset);
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Delete"
-                    className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(preset.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex shrink-0 flex-col gap-0.5 pt-0.5">
+                    <button
+                      type="button"
+                      title="Rename"
+                      className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startRename(preset);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete"
+                      className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(preset.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </li>
             );
@@ -149,6 +159,27 @@ export function PresetsPanel({
 
       {selected && (
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-teal-200/10 bg-depth-900/40 p-3">
+          <div>
+            <div className="font-[Syne] text-sm font-semibold text-teal-50/90">
+              {selected.name}
+            </div>
+            {onDescriptionChange ? (
+              <textarea
+                value={selected.description ?? ""}
+                onChange={(e) =>
+                  onDescriptionChange(selected.id, e.target.value)
+                }
+                rows={4}
+                placeholder="Add a description…"
+                className="mt-2 w-full resize-y rounded-lg border border-teal-200/15 bg-depth-950/70 px-2.5 py-2 font-[Figtree] text-[12px] leading-relaxed text-teal-50/85 outline-none placeholder:text-teal-100/30 focus:border-teal-400/35"
+              />
+            ) : selected.description?.trim() ? (
+              <p className="mt-2 text-[12px] leading-relaxed text-teal-100/65">
+                {selected.description}
+              </p>
+            ) : null}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] tracking-wide text-teal-100/45 uppercase">
               Mode
