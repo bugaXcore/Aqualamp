@@ -29,10 +29,15 @@ function Write-Hint([string]$msg) {
 }
 
 function Find-Adb {
+  # Prefer a copy shipped with this repo (beginner-friendly, no PATH needed).
+  $bundled = Join-Path $RepoRoot "files\platform-tools\adb.exe"
+  if (Test-Path $bundled) { return $bundled }
+
   $cmd = Get-Command adb -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Source }
 
   $candidates = @(
+    (Join-Path $RepoRoot "platform-tools\adb.exe"),
     "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe",
     "$env:USERPROFILE\AppData\Local\Android\Sdk\platform-tools\adb.exe",
     "C:\Android\platform-tools\adb.exe",
@@ -53,7 +58,11 @@ $adb = Find-Adb
 if (-not $adb) {
   Write-Host "Could not find 'adb' (Android Debug Bridge)." -ForegroundColor Red
   Write-Host ""
-  Write-Host "Install it once, then re-run this script:" -ForegroundColor Yellow
+  Write-Host "Easiest fix for this project:" -ForegroundColor Yellow
+  Write-Host ("  Put platform-tools here: " + (Join-Path $RepoRoot "files\platform-tools\adb.exe"))
+  Write-Host "  (Download 'SDK Platform Tools' from Google, unzip into files\platform-tools\)"
+  Write-Host ""
+  Write-Host "Or install it system-wide:" -ForegroundColor Yellow
   Write-Host "  1. Install Google Platform Tools (search: 'SDK Platform Tools download')"
   Write-Host "  2. Unzip somewhere, e.g. C:\platform-tools"
   Write-Host "  3. Add that folder to your PATH, OR re-open this terminal after install"
@@ -120,13 +129,15 @@ Write-Host ""
 Write-Host "Keep the lamp CONNECTED in the app the whole time." -ForegroundColor White
 Write-Host "Between each step, wait about 3 seconds (count slowly: 1...2...3)." -ForegroundColor White
 Write-Host ""
-Write-Host "  1. Red slider -> 0, wait, then Red -> 100, wait"
-Write-Host "  2. Blue slider -> 0, wait, then Blue -> 100, wait"
-Write-Host "  3. Green slider -> 0, wait, then Green -> 100, wait"
-Write-Host "  4. White slider -> 0, wait, then White -> 100, wait"
-Write-Host "  5. Turn the light OFF (power / all channels 0), wait"
+Write-Host "App channels: Red / Green / Blue / UV / Fan / Power" -ForegroundColor White
 Write-Host ""
-Write-Host "Optional (helps find UUIDs later): install 'nRF Connect' from the" -ForegroundColor DarkGray
+Write-Host "  1. Custom Mode -> Red only (or Red slider 0 then 100), wait"
+Write-Host "  2. Custom Mode -> Green only (or Green 0 then 100), wait"
+Write-Host "  3. Custom Mode -> Blue only (or Blue 0 then 100), wait"
+Write-Host "  4. UV slider -> 0, wait, then UV -> 100, wait  (if present)"
+Write-Host "  5. Fan / Power off (or all channels 0), wait"
+Write-Host ""
+Write-Host "Optional (helps confirm UUIDs): install 'nRF Connect' from the" -ForegroundColor DarkGray
 Write-Host "Play Store (Nordic Semiconductor), connect to B3.0-S300pro-03," -ForegroundColor DarkGray
 Write-Host "and screenshot the service/characteristic list. Not required now." -ForegroundColor DarkGray
 Write-Host ""
@@ -135,13 +146,36 @@ Write-Host ""
 Read-Host "Press Enter to pull logs from the phone"
 
 Write-Step "Pulling Bluetooth / bugreport files (this can take a minute)"
+Write-Hint "Direct HCI pull often says Permission denied — that is OK; we fall back to bugreport."
 
 $pulled = @()
+$hciPullDenied = $false
+# Native adb errors must not abort the script (Permission denied is expected on /data).
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 foreach ($remote in $HciCandidates) {
   $leaf = Split-Path $remote -Leaf
   $local = Join-Path $OutDir $leaf
-  # try plain pull (may fail without root on /data)
-  & $adb pull $remote $local 2>$null | Out-Null
+  $pullErr = $null
+  try {
+    $pullOut = & $adb pull $remote $local 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      $msg = ($pullOut | Out-String)
+      if ($msg -match "Permission denied|does not exist|No such file|failed to stat") {
+        $hciPullDenied = $true
+        Write-Hint ("skip (expected): " + $remote + " — " + ($msg.Trim() -replace "\s+", " "))
+      } else {
+        Write-Hint ("skip: " + $remote + " — exit " + $LASTEXITCODE)
+      }
+      Remove-Item $local -Force -ErrorAction SilentlyContinue
+      continue
+    }
+  } catch {
+    $hciPullDenied = $true
+    Write-Hint ("skip (error): " + $remote + " — " + $_.Exception.Message)
+    Remove-Item $local -Force -ErrorAction SilentlyContinue
+    continue
+  }
   if (Test-Path $local) {
     $len = (Get-Item $local).Length
     if ($len -gt 64) {
@@ -152,11 +186,18 @@ foreach ($remote in $HciCandidates) {
     }
   }
 }
+$ErrorActionPreference = $prevEap
+
+if ($hciPullDenied -and $pulled.Count -eq 0) {
+  Write-Hint "No direct HCI file pulled (Permission denied / missing). Continuing with bugreport fallback..."
+}
 
 Write-Hint "Generating bugreport (most reliable on modern phones)..."
 $bugZip = Join-Path $OutDir "bugreport.zip"
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 try {
-  & $adb bugreport $bugZip
+  & $adb bugreport $bugZip 2>&1 | ForEach-Object { Write-Hint ($_ | Out-String).Trim() }
   if (Test-Path $bugZip) {
     Write-Hint ("bugreport saved: " + $bugZip)
     $pulled += $bugZip
@@ -167,7 +208,7 @@ try {
     try {
       Expand-Archive -Path $bugZip -DestinationPath $expandDir -Force
     } catch {
-      # some bugreports are already .txt; ignore
+      Write-Hint ("expand note: " + $_.Exception.Message)
     }
     $found = Get-ChildItem -Path $expandDir -Recurse -File -ErrorAction SilentlyContinue |
       Where-Object { $_.Name -match "btsnoop|btsnooz" }
@@ -177,10 +218,14 @@ try {
       Write-Hint ("found inside bugreport: " + $f.Name)
       $pulled += $dest
     }
+  } else {
+    Write-Hint "bugreport.zip was not created. You can still drop a manual bugreport ZIP into files\captures\"
   }
 } catch {
   Write-Hint ("bugreport failed: " + $_.Exception.Message)
   Write-Hint "You can still manually share a bugreport ZIP into files\captures\"
+} finally {
+  $ErrorActionPreference = $prevEap
 }
 
 # Manifest
@@ -190,12 +235,13 @@ $manifest = [ordered]@{
   lightMac = "C8:47:80:70:BB:07"
   lightName = "B3.0-S300pro-03"
   checklist = @(
-    "Red 0 then 100",
-    "Blue 0 then 100",
-    "Green 0 then 100",
-    "White 0 then 100",
-    "Off"
+    "CustomMode Red (or Red 0 then 100)",
+    "CustomMode Green (or Green 0 then 100)",
+    "CustomMode Blue (or Blue 0 then 100)",
+    "UV 0 then 100 (if present)",
+    "Fan/Power off or all channels 0"
   )
+  appChannels = @("R", "G", "B", "UV", "Fan", "Power")
   pulled = @($pulled | Select-Object -Unique)
   hciCandidatesTried = $HciCandidates
 }
