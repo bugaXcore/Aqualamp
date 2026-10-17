@@ -7,7 +7,7 @@ apps/web  →  WebSocket  →  apps/bridge  →  WeekAquaController  →  BLE (o
 apps/cli  ──────────────────────────────→  WeekAquaController
 ```
 
-Until device MAC, GATT UUIDs, and hex captures are filled in (Phase 0), use **mock mode** (`AQUALAMP_MOCK=1`, the default).
+**Phase 0 (partial):** phone logs identified MAC `C8:47:80:70:BB:07` (`B3.0-S300pro-03`) and raw 3-byte write frames, but **service/characteristic UUIDs and channel mapping are still missing**. Keep **mock mode** (`AQUALAMP_MOCK=1`, the default) until those are filled.
 
 ## Prerequisites (Windows)
 
