@@ -490,61 +490,41 @@ export default function App() {
               ))}
             </div>
 
-            {/* Day presets composition chrome — EDIT only */}
-            <div
-              className={
-                isLive
-                  ? "flex flex-col gap-3"
-                  : "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
-              }
-            >
-              {!isLive && (
-                <PresetsPanel
-                  presets={displayPresets}
-                  selectedId={selectedPresetId}
-                  dirty={dirty}
-                  selectedIsCommitted={selectedIsCommitted}
-                  dirtyIds={dirtyIds}
-                  onSelect={(id) => {
-                    setSelectedPresetId(id);
-                    setSelectedKeyframeId(null);
-                    const p = displayPresets.find((x) => x.id === id);
-                    if (!p) return;
-                    if (p.mode === "constant") {
-                      pushToBridge({ ...p.constantChannels });
-                    } else {
-                      pushToBridge(interpolateAt(p, playheadMinutes));
-                    }
-                  }}
-                  onCreate={handleCreatePreset}
-                  onRename={(id, name) =>
-                    patchPreset(id, (p) => ({ ...p, name }))
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+              <PresetsPanel
+                presets={displayPresets}
+                selectedId={selectedPresetId}
+                dirty={dirty}
+                selectedIsCommitted={selectedIsCommitted}
+                dirtyIds={dirtyIds}
+                editEnabled={!isLive}
+                onSelect={(id) => {
+                  setSelectedPresetId(id);
+                  setSelectedKeyframeId(null);
+                  const p = displayPresets.find((x) => x.id === id);
+                  if (!p) return;
+                  if (p.mode === "constant") {
+                    pushToBridge({ ...p.constantChannels });
+                  } else {
+                    pushToBridge(interpolateAt(p, playheadMinutes));
                   }
-                  onDelete={handleDeletePreset}
-                  onModeChange={handleModeChange}
-                  onSnapChange={(id, snap: SnapMode) =>
-                    patchPreset(id, (p) => ({ ...p, snap }))
-                  }
-                  onDescriptionChange={(id, description) =>
-                    patchPreset(id, (p) => ({ ...p, description }))
-                  }
-                  onSave={handleSave}
-                  onDiscard={handleDiscard}
-                  onDuplicate={handleDuplicate}
-                />
-              )}
-
-              {isLive && selectedPreset && (
-                <p className="px-1 text-xs text-teal-100/50">
-                  Playing{" "}
-                  <span className="font-[Syne] font-semibold text-teal-50/80">
-                    {selectedPreset.name}
-                  </span>
-                  <span className="ml-2 font-mono text-[10px] tracking-wide text-teal-200/45 uppercase">
-                    switch to EDIT to change presets
-                  </span>
-                </p>
-              )}
+                }}
+                onCreate={handleCreatePreset}
+                onRename={(id, name) =>
+                  patchPreset(id, (p) => ({ ...p, name }))
+                }
+                onDelete={handleDeletePreset}
+                onModeChange={handleModeChange}
+                onSnapChange={(id, snap: SnapMode) =>
+                  patchPreset(id, (p) => ({ ...p, snap }))
+                }
+                onDescriptionChange={(id, description) =>
+                  patchPreset(id, (p) => ({ ...p, description }))
+                }
+                onSave={handleSave}
+                onDiscard={handleDiscard}
+                onDuplicate={handleDuplicate}
+              />
 
               <DayTimeline
                 preset={selectedPreset}

@@ -15,6 +15,8 @@ type Props = {
   dirty: boolean;
   /** Selected preset exists in committed storage (false = never saved). */
   selectedIsCommitted: boolean;
+  /** When false (LIVE), list stays selectable but all edit chrome is hidden. */
+  editEnabled?: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
@@ -34,6 +36,7 @@ export function PresetsPanel({
   selectedId,
   dirty,
   selectedIsCommitted,
+  editEnabled = true,
   onSelect,
   onCreate,
   onRename,
@@ -52,7 +55,7 @@ export function PresetsPanel({
   const [draftName, setDraftName] = useState("");
 
   const startRename = (preset: DayPreset) => {
-    if (isBuiltinPreset(preset)) return;
+    if (!editEnabled || isBuiltinPreset(preset)) return;
     setRenamingId(preset.id);
     setDraftName(preset.name);
   };
@@ -72,20 +75,24 @@ export function PresetsPanel({
             Day presets
           </h3>
           <p className="mt-1 text-xs text-teal-100/50">
-            Built-ins are read-only · user presets save explicitly.
+            {editEnabled
+              ? "Built-ins are read-only · user presets save explicitly."
+              : "Select a preset to play · switch to EDIT to compose."}
           </p>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={onCreate}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          New
-        </Button>
+        {editEnabled && (
+          <Button type="button" size="sm" variant="outline" onClick={onCreate}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New
+          </Button>
+        )}
       </div>
 
       <ul className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
         {presets.map((preset) => {
           const active = preset.id === selectedId;
           const builtin = isBuiltinPreset(preset);
-          const rowDirty = dirtyIds?.has(preset.id) ?? false;
+          const rowDirty = editEnabled && (dirtyIds?.has(preset.id) ?? false);
           return (
             <li key={preset.id}>
               <div
@@ -105,7 +112,7 @@ export function PresetsPanel({
                     : "border-teal-200/10 bg-depth-900/50 hover:border-teal-200/20",
                 )}
               >
-                {renamingId === preset.id ? (
+                {editEnabled && renamingId === preset.id ? (
                   <form
                     className="flex flex-1"
                     onClick={(e) => e.stopPropagation()}
@@ -153,52 +160,55 @@ export function PresetsPanel({
                     ) : null}
                   </div>
                 )}
-                <div className="flex shrink-0 flex-col gap-0.5 pt-0.5">
-                  <button
-                    type="button"
-                    title="Duplicate as editable copy"
-                    className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicate(preset.id);
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                  {!builtin && (
-                    <>
-                      <button
-                        type="button"
-                        title="Rename"
-                        className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startRename(preset);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete"
-                        className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(preset.id);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
+                {editEnabled && (
+                  <div className="flex shrink-0 flex-col gap-0.5 pt-0.5">
+                    <button
+                      type="button"
+                      title="Duplicate as editable copy"
+                      className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicate(preset.id);
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    {!builtin && (
+                      <>
+                        <button
+                          type="button"
+                          title="Rename"
+                          className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startRename(preset);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete"
+                          className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(preset.id);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </li>
           );
         })}
       </ul>
 
-      {selected && (
+      {/* Detail / edit chrome — EDIT only */}
+      {editEnabled && selected && (
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-teal-200/10 bg-depth-900/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="font-[Syne] text-sm font-semibold text-teal-50/90">
