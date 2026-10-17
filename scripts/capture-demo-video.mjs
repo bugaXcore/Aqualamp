@@ -108,10 +108,10 @@ try {
   }
 
   const steps = [
-    { red: 40, green: 10, blue: 60, white: 10 },
-    { red: 55, green: 15, blue: 75, white: 20 },
-    { red: 65, green: 20, blue: 85, white: 35 },
-    { red: 80, green: 30, blue: 95, white: 45 },
+    { red: 40, green: 10, blue: 60, uv: 10 },
+    { red: 55, green: 15, blue: 75, uv: 20 },
+    { red: 65, green: 20, blue: 85, uv: 35 },
+    { red: 80, green: 30, blue: 95, uv: 45 },
   ];
   for (const channels of steps) {
     await bridgeRpc([{ type: "setChannels", channels }]);

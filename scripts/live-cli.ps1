@@ -76,9 +76,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Running: npm run cli -- --red $Red --green 0 --blue 0 --white 0"
+Write-Host "Running: npm run cli -- --red $Red --green 0 --blue 0 --uv 0"
 
 # Use cmd so npm.cmd reliably sees the same environment block.
-$argLine = "--red $Red --green 0 --blue 0 --white 0"
+$argLine = "--red $Red --green 0 --blue 0 --uv 0"
 cmd /c "npm run cli -- $argLine"
 exit $LASTEXITCODE

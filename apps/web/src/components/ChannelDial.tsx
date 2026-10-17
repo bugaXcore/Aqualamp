@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -9,6 +9,18 @@ type Props = {
   onChange: (value: number) => void;
 };
 
+const CX = 56;
+const CY = 56;
+const R = 42;
+/** pathLength units = percent; keeps dash math in 0–100. */
+const PATH_LEN = 100;
+
+function clampPct(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+/** Full-circle mapping: 12 o'clock = 0%, clockwise → 100%. */
 function valueFromPointer(
   clientX: number,
   clientY: number,
@@ -17,12 +29,10 @@ function valueFromPointer(
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const angle = Math.atan2(clientY - cy, clientX - cx);
-  // Map from bottom-left sweep (-135deg .. +135deg) → 0..100
-  let deg = (angle * 180) / Math.PI;
-  deg = deg + 135;
-  if (deg < 0) deg = 0;
-  if (deg > 270) deg = 270;
-  return Math.round((deg / 270) * 100);
+  let deg = (angle * 180) / Math.PI + 90;
+  if (deg < 0) deg += 360;
+  if (deg >= 360) deg -= 360;
+  return clampPct((deg / 360) * 100);
 }
 
 export function ChannelDial({
@@ -34,105 +44,123 @@ export function ChannelDial({
 }: Props) {
   const id = useId();
   const svgRef = useRef<SVGSVGElement>(null);
-  const dragging = useRef(false);
+  const draggingRef = useRef(false);
+  const [dragging, setDragging] = useState(false);
 
-  const start = -135;
-  const sweep = (value / 100) * 270;
-  const r = 42;
-  const c = 56;
-  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
-  const arc = (from: number, to: number) => {
-    const a0 = toRad(from);
-    const a1 = toRad(to);
-    const x0 = c + r * Math.cos(a0);
-    const y0 = c + r * Math.sin(a0);
-    const x1 = c + r * Math.cos(a1);
-    const y1 = c + r * Math.sin(a1);
-    const large = to - from > 180 ? 1 : 0;
-    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
-  };
+  const pct = clampPct(value);
+  const isFull = pct >= 100;
+  // Only stroke-dashoffset animates for 1–99 (stays on the ring).
+  // At 100%, omit dash styling so the stroke is a true closed circle.
+  const progressDasharray = isFull ? undefined : `${PATH_LEN} ${PATH_LEN}`;
+  const progressDashoffset = isFull ? undefined : PATH_LEN - pct;
+  const ringTransition = dragging ? "none" : "stroke-dashoffset 120ms linear";
 
   const applyPointer = (clientX: number, clientY: number) => {
     const el = svgRef.current;
     if (!el || disabled) return;
-    const next = valueFromPointer(clientX, clientY, el.getBoundingClientRect());
-    onChange(next);
+    onChange(valueFromPointer(clientX, clientY, el.getBoundingClientRect()));
   };
 
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-3 transition-transform duration-300",
+        "flex flex-col items-center gap-3 overflow-visible transition-transform duration-300",
         !disabled && "hover:scale-[1.02]",
         disabled && "opacity-45",
       )}
     >
-      <div className="relative">
+      {/*
+        Glow is a padded radial blob behind the SVG (not filter/drop-shadow),
+        so column overflow cannot shear it into flat side edges.
+      */}
+      <div className="relative overflow-visible p-5">
+        {pct > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{
+              background: `radial-gradient(circle at center, ${accent}55 0%, ${accent}22 42%, transparent 70%)`,
+            }}
+          />
+        )}
         <svg
           ref={svgRef}
           viewBox="0 0 112 112"
-          className="h-36 w-36 touch-none sm:h-40 sm:w-40"
+          className="relative z-[1] h-36 w-36 touch-none overflow-visible sm:h-40 sm:w-40"
+          style={{ overflow: "visible" }}
           role="slider"
           aria-labelledby={id}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={value}
+          aria-valuenow={pct}
           tabIndex={disabled ? -1 : 0}
           onPointerDown={(e) => {
             if (disabled) return;
-            dragging.current = true;
+            draggingRef.current = true;
+            setDragging(true);
             e.currentTarget.setPointerCapture(e.pointerId);
             applyPointer(e.clientX, e.clientY);
           }}
           onPointerMove={(e) => {
-            if (!dragging.current) return;
+            if (!draggingRef.current) return;
             applyPointer(e.clientX, e.clientY);
           }}
           onPointerUp={() => {
-            dragging.current = false;
+            draggingRef.current = false;
+            setDragging(false);
+          }}
+          onPointerCancel={() => {
+            draggingRef.current = false;
+            setDragging(false);
           }}
           onKeyDown={(e) => {
             if (disabled) return;
             if (e.key === "ArrowRight" || e.key === "ArrowUp") {
-              onChange(Math.min(100, value + 1));
+              onChange(clampPct(pct + 1));
             } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
-              onChange(Math.max(0, value - 1));
+              onChange(clampPct(pct - 1));
             }
           }}
         >
           <circle
-            cx={c}
-            cy={c}
-            r={r}
+            cx={CX}
+            cy={CY}
+            r={R}
             fill="none"
             stroke="rgba(148, 210, 220, 0.12)"
             strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={`${(270 / 360) * 2 * Math.PI * r} 999`}
-            transform={`rotate(-135 ${c} ${c})`}
+            pathLength={PATH_LEN}
+            transform={`rotate(-90 ${CX} ${CY})`}
           />
-          <path
-            d={arc(start, start + Math.max(sweep, 0.01))}
+          <circle
+            cx={CX}
+            cy={CY}
+            r={R}
             fill="none"
             stroke={accent}
             strokeWidth="8"
             strokeLinecap="round"
+            pathLength={isFull ? undefined : PATH_LEN}
+            strokeDasharray={progressDasharray}
+            strokeDashoffset={progressDashoffset}
+            /* Solid full ring: no rotate/dash (avoids 12-o'clock join seam). */
+            transform={isFull ? undefined : `rotate(-90 ${CX} ${CY})`}
+            opacity={pct <= 0 ? 0 : 1}
             style={{
-              filter: `drop-shadow(0 0 10px ${accent}88)`,
-              transition: dragging.current ? "none" : "d 120ms ease-out",
+              transition: isFull ? "none" : ringTransition,
             }}
           />
           <text
-            x={c}
-            y={c - 2}
+            x={CX}
+            y={CY - 2}
             textAnchor="middle"
             className="fill-white font-[Figtree] text-[22px] font-semibold"
           >
-            {value}
+            {pct}
           </text>
           <text
-            x={c}
-            y={c + 16}
+            x={CX}
+            y={CY + 16}
             textAnchor="middle"
             className="fill-teal-100/55 font-[Figtree] text-[10px] tracking-[0.18em]"
           >
@@ -151,9 +179,9 @@ export function ChannelDial({
           type="range"
           min={0}
           max={100}
-          value={value}
+          value={pct}
           disabled={disabled}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => onChange(clampPct(Number(e.target.value)))}
           className="channel-slider w-full"
           style={{ accentColor: accent }}
           aria-label={`${label} slider`}

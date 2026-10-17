@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
   defaultBridgeUrl,
+  normalizeBridgeChannels,
   type Channels,
   type ConnectionState,
   type ServerMessage,
 } from "@/lib/bridge";
 
-const EMPTY: Channels = { red: 0, green: 0, blue: 0, white: 0 };
+const EMPTY: Channels = { red: 0, green: 0, blue: 0, uv: 0 };
 
 export function useBridge(url = defaultBridgeUrl()) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -55,7 +56,7 @@ export function useBridge(url = defaultBridgeUrl()) {
         switch (msg.type) {
           case "hello":
             setState(msg.state);
-            setChannels(msg.channels);
+            setChannels(normalizeBridgeChannels(msg.channels));
             setMock(msg.mock);
             setError(null);
             break;
@@ -65,7 +66,7 @@ export function useBridge(url = defaultBridgeUrl()) {
             if (msg.state !== "error") setError(null);
             break;
           case "channels":
-            setChannels(msg.channels);
+            setChannels(normalizeBridgeChannels(msg.channels));
             break;
           case "error":
             setError(msg.message);

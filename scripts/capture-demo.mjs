@@ -64,7 +64,7 @@ try {
   await bridgeRpc([
     {
       type: "setChannels",
-      channels: { red: 65, green: 20, blue: 85, white: 35 },
+      channels: { red: 65, green: 20, blue: 85, uv: 35 },
     },
   ]);
   await new Promise((r) => setTimeout(r, 900));

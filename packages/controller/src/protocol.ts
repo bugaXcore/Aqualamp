@@ -62,10 +62,7 @@ export const DEVICE_FROM_LOGS = {
   redLadderCapture: "20261017-125735",
 } as const;
 
-/**
- * Week Aqua app channel names (UI).
- * Controller `Channels.white` is treated as **UV** on the wire until types are renamed.
- */
+/** Week Aqua app channel names (UI / wire CustomMode). */
 export const APP_CHANNELS = ["R", "G", "B", "UV", "Fan", "Power"] as const;
 
 /**
@@ -138,14 +135,13 @@ export function wireToPercent(wire: number): number {
 /**
  * CustomMode channel frame:
  *   fb f9 <R> <G> <B> <UV> 55 55
- * `Channels.white` is encoded as UV (interim API).
  */
 export function encodeChannels(channels: Channels): Buffer {
   return encodeCustomModeFrame(
     percentToWire(channels.red),
     percentToWire(channels.green),
     percentToWire(channels.blue),
-    percentToWire(channels.white),
+    percentToWire(channels.uv),
   );
 }
 

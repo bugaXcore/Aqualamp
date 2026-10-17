@@ -15,9 +15,9 @@ import {
 import { normalizeChannels } from "../src/types.js";
 
 describe("encodeChannels", () => {
-  it("maps 0–100 channels onto CustomMode fb f9 frames (white→UV)", () => {
+  it("maps 0–100 channels onto CustomMode fb f9 frames (R/G/B/UV)", () => {
     const buf = encodeChannels(
-      normalizeChannels({ red: 100, green: 0, blue: 50, white: 25 }),
+      normalizeChannels({ red: 100, green: 0, blue: 50, uv: 25 }),
     );
     assert.equal(buf.length, 8);
     assert.equal(buf[0], 0xfb);
@@ -31,8 +31,13 @@ describe("encodeChannels", () => {
   });
 
   it("clamps out-of-range values via normalizeChannels", () => {
-    const channels = normalizeChannels({ red: 150, green: -3, blue: 40.6, white: 0 });
-    assert.deepEqual(channels, { red: 100, green: 0, blue: 41, white: 0 });
+    const channels = normalizeChannels({ red: 150, green: -3, blue: 40.6, uv: 0 });
+    assert.deepEqual(channels, { red: 100, green: 0, blue: 41, uv: 0 });
+  });
+
+  it("accepts legacy white alias as uv", () => {
+    const channels = normalizeChannels({ white: 40 });
+    assert.equal(channels.uv, 40);
   });
 
   it("opens hardware gate now that UUIDs/frames/scale are known", () => {

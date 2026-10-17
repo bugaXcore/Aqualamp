@@ -14,19 +14,22 @@ function parseArgs(argv: string[]): Partial<{
   red: number;
   green: number;
   blue: number;
-  white: number;
+  uv: number;
 }> {
-  const out: Record<string, number> = {};
+  const out: Partial<{ red: number; green: number; blue: number; uv: number }> =
+    {};
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (!key.startsWith("--")) continue;
-    const name = key.slice(2);
-    if (!["red", "green", "blue", "white"].includes(name)) continue;
+    let name = key.slice(2);
+    // Legacy alias: --white maps to uv (S300 Pro has UV, not white).
+    if (name === "white") name = "uv";
+    if (!["red", "green", "blue", "uv"].includes(name)) continue;
     const raw = argv[i + 1];
     if (raw === undefined || raw.startsWith("--")) {
       throw new Error(`Missing value for --${name}`);
     }
-    out[name] = Number(raw);
+    out[name as "red" | "green" | "blue" | "uv"] = Number(raw);
     i++;
   }
   return out;
@@ -38,7 +41,7 @@ async function main(): Promise<void> {
     channels.red = 40;
     channels.green = 20;
     channels.blue = 80;
-    channels.white = 10;
+    channels.uv = 10;
   }
 
   const config = loadControllerConfigFromEnv();

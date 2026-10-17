@@ -13,7 +13,7 @@ const CHANNEL_META: {
   { key: "red", label: "Red", accent: "#f87171" },
   { key: "green", label: "Green", accent: "#4ade80" },
   { key: "blue", label: "Blue", accent: "#60a5fa" },
-  { key: "white", label: "White", accent: "#e2e8f0" },
+  { key: "uv", label: "UV", accent: "#c084fc" },
 ];
 
 export default function App() {
@@ -36,8 +36,10 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <div className="caustics" aria-hidden />
-      <div className="depth-glow" aria-hidden />
+      <div className="app-bg" aria-hidden>
+        <div className="caustics" />
+        <div className="depth-glow" />
+      </div>
 
       <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8">
         <div className="font-[Syne] text-lg font-bold tracking-tight text-teal-50/90 sm:text-xl">
@@ -84,7 +86,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <section className="controls-enter flex flex-1 flex-col gap-10 pt-4">
+          <section className="controls-enter flex flex-1 flex-col gap-10 overflow-visible pt-4">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <h2 className="font-[Syne] text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -111,7 +113,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 lg:grid-cols-4 lg:gap-6">
+            <div className="grid grid-cols-2 gap-10 overflow-visible px-3 sm:gap-12 lg:grid-cols-4 lg:gap-8 lg:px-4">
               {CHANNEL_META.map((ch) => (
                 <ChannelDial
                   key={ch.key}
