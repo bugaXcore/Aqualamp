@@ -292,71 +292,6 @@ export function DayTimeline({
       </div>
 
       <div className="relative mt-3">
-        {showHud && activeKeyframe && (
-          <div
-            className="cti-hud relative z-20 mb-2 w-[min(100%,17.5rem)]"
-            style={{
-              marginLeft:
-                hudAlign === "left"
-                  ? 0
-                  : hudAlign === "right"
-                    ? "auto"
-                    : `max(0px, min(calc(100% - 17.5rem), calc(${ctiPct}% - 8.75rem)))`,
-              marginRight: hudAlign === "right" ? 0 : undefined,
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className="rounded-xl border border-teal-300/25 bg-depth-950/95 p-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5">
-                  <span className="font-mono text-[9px] tracking-wide text-teal-100/45 uppercase">
-                    Time
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={
-                      timeDraft ?? minsToTime(activeKeyframe.minutes)
-                    }
-                    onChange={(e) => setTimeDraft(e.target.value)}
-                    onBlur={commitTimeDraft}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.currentTarget.blur();
-                      }
-                    }}
-                    className="w-[4.25rem] rounded-md border border-teal-200/20 bg-depth-900 px-1.5 py-0.5 font-mono text-[12px] tabular-nums text-teal-50 outline-none focus:border-teal-400/40"
-                    aria-label="Keyframe time"
-                  />
-                </label>
-                {activeKeyframe.label ? (
-                  <span className="truncate text-[10px] text-teal-100/55">
-                    {activeKeyframe.label}
-                  </span>
-                ) : (
-                  <span className="font-mono text-[9px] tracking-wide text-teal-100/35 uppercase">
-                    Keyframe
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                {CHANNEL_META.map((ch) => (
-                  <ChannelSlider
-                    key={ch.key}
-                    compact
-                    label={ch.label}
-                    value={activeKeyframe.channels[ch.key]}
-                    accent={ch.accent}
-                    onChange={(v) =>
-                      onKeyframeChannelChange(activeKeyframe.id, ch.key, v)
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="relative">
         <div
           className={cn(
@@ -741,6 +676,65 @@ export function DayTimeline({
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {showHud && activeKeyframe && (
+          <div
+            className="cti-hud pointer-events-none absolute z-40 w-[min(calc(100%-0.75rem),12.75rem)]"
+            style={{
+              top: "2.65rem",
+              left:
+                hudAlign === "right"
+                  ? "auto"
+                  : hudAlign === "left"
+                    ? `max(0.35rem, calc(${ctiPct}% + 0.55rem))`
+                    : `max(0.35rem, min(calc(100% - 13rem), calc(${ctiPct}% + 0.55rem)))`,
+              right:
+                hudAlign === "right"
+                  ? `max(0.35rem, calc(${100 - ctiPct}% + 0.55rem))`
+                  : "auto",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="pointer-events-auto rounded-lg border border-teal-300/20 bg-depth-950/92 px-2 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.5)] backdrop-blur-md">
+              <div className="mb-1.5 flex items-center justify-between gap-1.5">
+                <label className="flex min-w-0 items-center gap-1">
+                  <span className="font-mono text-[8px] tracking-wide text-teal-100/40 uppercase">
+                    Time
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={timeDraft ?? minsToTime(activeKeyframe.minutes)}
+                    onChange={(e) => setTimeDraft(e.target.value)}
+                    onBlur={commitTimeDraft}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    className="w-[3.4rem] rounded border border-teal-200/15 bg-depth-900/90 px-1 py-0.5 font-mono text-[11px] tabular-nums text-teal-50 outline-none focus:border-teal-400/35"
+                    aria-label="Keyframe time"
+                  />
+                </label>
+                <span className="truncate font-mono text-[8px] tracking-wide text-teal-100/40 uppercase">
+                  {activeKeyframe.label ?? "Key"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-2.5 gap-y-1.5">
+                {CHANNEL_META.map((ch) => (
+                  <ChannelSlider
+                    key={ch.key}
+                    compact
+                    label={ch.label}
+                    value={activeKeyframe.channels[ch.key]}
+                    accent={ch.accent}
+                    onChange={(v) =>
+                      onKeyframeChannelChange(activeKeyframe.id, ch.key, v)
+                    }
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}

@@ -526,7 +526,7 @@ export default function App() {
         ) : (
           <section className="controls-enter flex flex-1 flex-col gap-6 overflow-visible pt-4">
             <div
-              className={`channel-strip grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 ${slidersLocked ? "pointer-events-none" : ""}`}
+              className={`channel-strip grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${slidersLocked ? "pointer-events-none" : ""}`}
             >
               {CHANNEL_META.map((ch) => (
                 <ChannelSlider

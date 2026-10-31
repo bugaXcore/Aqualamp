@@ -116,7 +116,7 @@ export function PresetsPanel({
                 {/* Rightmost ~25% mix summary */}
                 <div
                   aria-hidden
-                  className="preset-mix-preview pointer-events-none absolute inset-y-0 right-0 w-[25%]"
+                  className="preset-mix-preview pointer-events-none absolute inset-y-0 right-0"
                   style={{ background: mixBg }}
                 />
 
