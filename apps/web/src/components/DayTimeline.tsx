@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Activity, Link2, Plus, Sliders, Trash2 } from "lucide-react";
+import { Link2, Plus, Trash2 } from "lucide-react";
 import { ChannelSlider } from "@/components/ChannelSlider";
 import { SolarAssistStrip } from "@/components/SolarAssistStrip";
 import type { Channels } from "@/lib/bridge";
@@ -14,8 +14,6 @@ import {
 } from "@/lib/presets";
 import { listLinkedRamps, type SolarApplyInput } from "@/lib/ramps";
 import { cn } from "@/lib/utils";
-
-export type TimelineWorkspaceMode = "edit" | "live";
 
 const W = 1000;
 const H = 140;
@@ -42,12 +40,12 @@ type Props = {
   preset: DayPreset | null;
   selectedKeyframeId: string | null;
   playheadMinutes: number;
-  workspaceMode: TimelineWorkspaceMode;
+  /** Compose = free CTI + HUD; playback = clock CTI, no compose chrome */
+  composing: boolean;
   /** Built-in / locked composition — scrub OK, no keyframe writes */
   compositionLocked?: boolean;
-  /** When true (EDIT + user preset), description is an editable textarea. */
+  /** When true (compose + user preset), description is an editable textarea. */
   descriptionEditable?: boolean;
-  onWorkspaceModeChange: (mode: TimelineWorkspaceMode) => void;
   onScrub: (minutes: number) => void;
   onSelectKeyframe: (id: string | null) => void;
   onMoveKeyframe: (id: string, minutes: number) => void;
@@ -146,10 +144,9 @@ export function DayTimeline({
   preset,
   selectedKeyframeId,
   playheadMinutes,
-  workspaceMode,
+  composing,
   compositionLocked = false,
   descriptionEditable = false,
-  onWorkspaceModeChange,
   onScrub,
   onSelectKeyframe,
   onMoveKeyframe,
@@ -169,9 +166,8 @@ export function DayTimeline({
   } | null>(null);
   const [timeDraft, setTimeDraft] = useState<string | null>(null);
 
-  const isEdit = workspaceMode === "edit";
-  const isLive = workspaceMode === "live";
-  const canCompose = isEdit && !compositionLocked;
+  const isPlayback = !composing;
+  const canCompose = composing && !compositionLocked;
   const schedule = preset?.mode === "schedule";
   const showCtiChrome = Boolean(canCompose && schedule && preset);
 
@@ -230,14 +226,16 @@ export function DayTimeline({
     ctiPct < 28 ? "left" : ctiPct > 72 ? "right" : "center";
 
   const hint = !preset
-    ? "Select a preset to compose or play back the day."
-    : isLive
-      ? "LIVE — clock-synced playback · sliders are telemetry"
+    ? "Select a preset · Duplicate or New to compose."
+    : isPlayback
+      ? compositionLocked
+        ? "Playing · read-only builtin · Duplicate to compose"
+        : "Playing · clock CTI · New / Duplicate / Edit to compose"
       : compositionLocked
-        ? "EDIT — built-in read-only · scrub to preview · Duplicate to edit"
+        ? "Built-in read-only · Duplicate to compose"
         : preset.mode === "constant"
-          ? "EDIT — constant levels · Save to keep changes"
-          : "EDIT — CTI + / trash · HUD edits the key · Save to keep";
+          ? "Composing · constant levels · Save to keep"
+          : "Composing · CTI + / trash · HUD edits the key · Save to keep";
 
   const description = preset?.description?.trim() ?? "";
   const showDescriptionBlock =
@@ -274,35 +272,20 @@ export function DayTimeline({
           <p className="mt-1 text-xs leading-relaxed text-teal-100/50">{hint}</p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <div
-            className="timeline-mode-switch"
-            role="group"
-            aria-label="Timeline workspace mode"
-          >
-            <button
-              type="button"
-              aria-pressed={isEdit}
-              onClick={() => onWorkspaceModeChange("edit")}
-              className={cn("timeline-mode-btn", isEdit && "is-active")}
-            >
-              <Sliders className="h-3 w-3" />
-              EDIT
-            </button>
-            <button
-              type="button"
-              aria-pressed={isLive}
-              onClick={() => onWorkspaceModeChange("live")}
-              className={cn("timeline-mode-btn", isLive && "is-active is-live")}
-            >
-              <Activity className={cn("h-3 w-3", isLive && "animate-pulse")} />
-              LIVE
-            </button>
-          </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {composing ? (
+            <span className="rounded-full border border-amber-300/25 bg-amber-950/35 px-2 py-0.5 font-mono text-[9px] tracking-wide text-amber-100/85 uppercase">
+              Composing
+            </span>
+          ) : (
+            <span className="rounded-full border border-teal-300/20 bg-teal-950/40 px-2 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/75 uppercase">
+              Playing
+            </span>
+          )}
           <span
             className={cn(
               "font-mono text-[11px] tabular-nums tracking-wide",
-              isLive ? "text-teal-300/90" : "text-teal-200/70",
+              isPlayback ? "text-teal-300/90" : "text-teal-200/70",
             )}
           >
             {minsToTime(playheadMinutes)}
@@ -315,17 +298,17 @@ export function DayTimeline({
         <div
           className={cn(
             "timeline-canvas relative overflow-hidden rounded-2xl border",
-            isLive
+            isPlayback
               ? "border-teal-400/25 timeline-canvas-live"
               : "border-teal-200/10",
             !preset && "opacity-55",
           )}
         >
-          {isLive && (
+          {isPlayback && (
             <div className="pointer-events-none absolute top-2.5 left-3 z-[1] flex items-center gap-1.5 rounded-full border border-teal-400/25 bg-teal-950/50 px-2 py-0.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
               <span className="font-[Figtree] text-[10px] font-semibold tracking-[0.14em] text-teal-200/80 uppercase">
-                Locked · telemetry
+                Playback · telemetry
               </span>
             </div>
           )}
@@ -336,14 +319,14 @@ export function DayTimeline({
               "h-48 w-full touch-none select-none sm:h-56",
               !preset
                 ? "cursor-default"
-                : isLive
+                : isPlayback
                   ? "cursor-not-allowed"
                   : "cursor-ew-resize",
             )}
             viewBox={`0 0 ${W} ${H}`}
             preserveAspectRatio="none"
             onPointerDown={(e) => {
-              if (!preset || !isEdit) return;
+              if (!preset || !canCompose) return;
               if ((e.target as Element).closest("[data-kf]")) return;
               const mins = minsFromEvent(e.clientX, false);
               setDraggingPlayhead(true);
@@ -353,7 +336,7 @@ export function DayTimeline({
               onScrub(mins);
             }}
             onPointerMove={(e) => {
-              if (!preset || !isEdit) return;
+              if (!preset || !canCompose) return;
               if (draggingRamp && canCompose && onMoveRampEdge) {
                 onMoveRampEdge(
                   draggingRamp.kind,
@@ -497,7 +480,7 @@ export function DayTimeline({
               })}
 
             {paths && (
-              <g className="timeline-curves" opacity={isLive ? 0.92 : 1}>
+              <g className="timeline-curves" opacity={isPlayback ? 0.92 : 1}>
                 {(
                   [
                     ["uv", paths.uv],
@@ -657,10 +640,10 @@ export function DayTimeline({
             {/* CTI / playhead */}
             <g
               filter="url(#cti-glow)"
-              style={{ pointerEvents: isEdit ? "auto" : "none" }}
-              className={isEdit ? "cursor-ew-resize" : undefined}
+              style={{ pointerEvents: canCompose ? "auto" : "none" }}
+              className={canCompose ? "cursor-ew-resize" : undefined}
               onPointerDown={(e) => {
-                if (!preset || !isEdit) return;
+                if (!preset || !canCompose) return;
                 e.stopPropagation();
                 setDraggingPlayhead(true);
                 setTimeDraft(null);

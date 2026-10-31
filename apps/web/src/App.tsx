@@ -6,10 +6,7 @@ import {
   type CSSProperties,
 } from "react";
 import { ChannelSlider } from "@/components/ChannelSlider";
-import {
-  DayTimeline,
-  type TimelineWorkspaceMode,
-} from "@/components/DayTimeline";
+import { DayTimeline } from "@/components/DayTimeline";
 import { PresetsPanel } from "@/components/PresetsPanel";
 import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
@@ -68,13 +65,28 @@ export default function App() {
     null,
   );
   const [playheadMinutes, setPlayheadMinutes] = useState(12 * 60);
-  const [workspaceMode, setWorkspaceMode] =
-    useState<TimelineWorkspaceMode>("edit");
+  /** Non-null = composing that preset id (intent from New / Edit / Duplicate). */
+  const [composeIntentId, setComposeIntentId] = useState<string | null>(null);
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
-  const isLive = workspaceMode === "live";
+  const isComposing =
+    composeIntentId !== null && composeIntentId === selectedPresetId;
+  const isPlayback = !isComposing;
   const setChannelsRef = useRef(bridge.setChannels);
   setChannelsRef.current = bridge.setChannels;
+
+  const enterCompose = (id: string) => {
+    if (isBuiltinPreset(id)) return;
+    setComposeIntentId(id);
+    setSelectedPresetId(id);
+  };
+
+  const exitCompose = () => {
+    setComposeIntentId(null);
+    setSelectedKeyframeId(null);
+    const mins = nowMinutes();
+    setPlayheadMinutes(mins);
+  };
 
   const displayPresets = useMemo(() => {
     const savedIds = new Set(savedUserPresets.map((p) => p.id));
@@ -116,12 +128,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isLive) return;
+    if (isPlayback) return;
     setLocal(bridge.channels);
-  }, [bridge.channels, isLive]);
+  }, [bridge.channels, isPlayback]);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!isPlayback) return;
     const tick = () => {
       setPlayheadMinutes(nowMinutes());
       setSelectedKeyframeId(null);
@@ -129,11 +141,11 @@ export default function App() {
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [isLive]);
+  }, [isPlayback]);
 
   useEffect(() => {
     if (!selectedPreset) return;
-    if (isLive) {
+    if (isPlayback) {
       const channels = interpolateAt(selectedPreset, playheadMinutes);
       setLocal(channels);
       setChannelsRef.current(channels);
@@ -155,7 +167,7 @@ export default function App() {
     selectedPreset,
     selectedKeyframeId,
     playheadMinutes,
-    isLive,
+    isPlayback,
     compositionLocked,
   ]);
 
@@ -165,7 +177,7 @@ export default function App() {
   };
 
   const patchPreset = (id: string, patch: (p: DayPreset) => DayPreset) => {
-    if (isBuiltinPreset(id) || isLive) return;
+    if (isBuiltinPreset(id) || isPlayback) return;
     setDrafts((prev) => {
       const base =
         prev[id] ??
@@ -177,7 +189,7 @@ export default function App() {
   };
 
   const updateChannel = (key: keyof Channels, value: number) => {
-    if (isLive || compositionLocked) return;
+    if (isPlayback || compositionLocked) return;
     if (!selectedPreset) {
       pushToBridge({ ...local, [key]: value });
       return;
@@ -243,9 +255,9 @@ export default function App() {
       1;
     const preset = createEmptyPreset(`Preset ${n}`);
     setDrafts((prev) => ({ ...prev, [preset.id]: preset }));
-    setSelectedPresetId(preset.id);
     setSelectedKeyframeId(null);
     setLocal({ ...preset.constantChannels });
+    enterCompose(preset.id);
   };
 
   const handleSave = () => {
@@ -268,29 +280,41 @@ export default function App() {
       delete next[selectedPresetId];
       return next;
     });
+    exitCompose();
+    if (committed.mode === "constant") {
+      pushToBridge({ ...committed.constantChannels });
+    } else {
+      pushToBridge(interpolateAt(committed, nowMinutes()));
+    }
   };
 
   const handleDiscard = () => {
-    if (!selectedPresetId || isBuiltinPreset(selectedPresetId)) return;
+    if (!selectedPresetId || isBuiltinPreset(selectedPresetId)) {
+      exitCompose();
+      return;
+    }
     const wasNew = !savedUserPresets.some((p) => p.id === selectedPresetId);
-    setDrafts((prev) => {
-      const next = { ...prev };
-      delete next[selectedPresetId];
-      return next;
-    });
+    const hadDraft = Boolean(drafts[selectedPresetId]);
+    if (hadDraft) {
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[selectedPresetId];
+        return next;
+      });
+    }
     if (wasNew) {
       setSelectedPresetId(null);
-      setSelectedKeyframeId(null);
-    } else {
-      const saved = savedUserPresets.find((p) => p.id === selectedPresetId);
-      if (saved) {
-        if (saved.mode === "constant") {
-          pushToBridge({ ...saved.constantChannels });
-        } else {
-          pushToBridge(interpolateAt(saved, playheadMinutes));
-        }
+      exitCompose();
+      return;
+    }
+    const saved = savedUserPresets.find((p) => p.id === selectedPresetId);
+    exitCompose();
+    if (saved) {
+      if (saved.mode === "constant") {
+        pushToBridge({ ...saved.constantChannels });
+      } else {
+        pushToBridge(interpolateAt(saved, nowMinutes()));
       }
-      setSelectedKeyframeId(null);
     }
   };
 
@@ -306,6 +330,7 @@ export default function App() {
       delete next[id];
       return next;
     });
+    if (composeIntentId === id) setComposeIntentId(null);
     if (selectedPresetId === id) {
       setSelectedPresetId(null);
       setSelectedKeyframeId(null);
@@ -317,13 +342,23 @@ export default function App() {
     if (!source) return;
     const copy = duplicateAsUserPreset(source);
     setDrafts((prev) => ({ ...prev, [copy.id]: copy }));
-    setSelectedPresetId(copy.id);
     setSelectedKeyframeId(null);
-    setWorkspaceMode("edit");
+    enterCompose(copy.id);
     if (copy.mode === "constant") {
       pushToBridge({ ...copy.constantChannels });
     } else {
       pushToBridge(interpolateAt(copy, playheadMinutes));
+    }
+  };
+
+  const handleRequestCompose = (id: string) => {
+    const source = displayPresets.find((p) => p.id === id);
+    if (!source || isBuiltinPreset(source)) return;
+    enterCompose(id);
+    if (source.mode === "constant") {
+      pushToBridge({ ...source.constantChannels });
+    } else {
+      pushToBridge(interpolateAt(source, playheadMinutes));
     }
   };
 
@@ -333,7 +368,7 @@ export default function App() {
   };
 
   const handleAddKeyframe = (minutes: number, channels: Channels) => {
-    if (isLive || compositionLocked) return;
+    if (isPlayback || compositionLocked) return;
     if (!selectedPreset || selectedPreset.mode !== "schedule") return;
     const snapped = clampMinutes(minutes, selectedPreset.snap);
     const existing = selectedPreset.keyframes.find((k) => k.minutes === snapped);
@@ -354,7 +389,7 @@ export default function App() {
   };
 
   const handleDeleteKeyframe = (id: string) => {
-    if (isLive || compositionLocked || !selectedPreset) return;
+    if (isPlayback || compositionLocked || !selectedPreset) return;
     if (selectedPreset.mode !== "schedule") return;
     const nextKeyframes = selectedPreset.keyframes.filter((k) => k.id !== id);
     patchPreset(selectedPreset.id, (p) => ({
@@ -375,7 +410,7 @@ export default function App() {
     key: keyof Channels,
     value: number,
   ) => {
-    if (isLive || compositionLocked || !selectedPreset) return;
+    if (isPlayback || compositionLocked || !selectedPreset) return;
     const kf = selectedPreset.keyframes.find((k) => k.id === id);
     if (!kf) return;
     const nextChannels = { ...kf.channels, [key]: value };
@@ -391,7 +426,7 @@ export default function App() {
   };
 
   const handleMoveKeyframe = (id: string, minutes: number) => {
-    if (isLive || compositionLocked || !selectedPreset) return;
+    if (isPlayback || compositionLocked || !selectedPreset) return;
     const snapped = clampMinutes(minutes, selectedPreset.snap);
     patchPreset(selectedPreset.id, (p) => ({
       ...p,
@@ -403,7 +438,7 @@ export default function App() {
   };
 
   const handleApplySolarRamp = (input: SolarApplyInput) => {
-    if (isLive || compositionLocked || !selectedPreset) return;
+    if (isPlayback || compositionLocked || !selectedPreset) return;
     if (selectedPreset.mode !== "schedule") return;
     const next = applySolarRamp(selectedPreset, input);
     patchPreset(selectedPreset.id, () => next);
@@ -417,56 +452,44 @@ export default function App() {
     edge: "start" | "end",
     minutes: number,
   ) => {
-    if (isLive || compositionLocked || !selectedPreset) return;
+    if (isPlayback || compositionLocked || !selectedPreset) return;
     patchPreset(selectedPreset.id, (p) => moveRampEdge(p, kind, edge, minutes));
     setPlayheadMinutes(clampMinutes(minutes, selectedPreset.snap));
   };
 
-  const slidersLocked = isLive || compositionLocked;
+  const slidersLocked = isPlayback || compositionLocked;
 
   const sliderHint = (() => {
-    if (isLive) {
+    if (isPlayback) {
       if (!selectedPreset) {
-        return "LIVE — sliders locked · select a preset for clock-synced output.";
+        return "Playing — sliders locked · New / Duplicate to compose.";
       }
       return selectedPreset.mode === "constant"
-        ? "LIVE — constant levels · sliders are read-only telemetry."
-        : `LIVE — ${minsToTime(playheadMinutes)} · sliders show interpolated output.`;
+        ? "Playing — constant levels · read-only telemetry."
+        : `Playing — ${minsToTime(playheadMinutes)} · clock CTI · read-only telemetry.`;
     }
     if (!selectedPreset) return "Manual mix — no day preset selected.";
     if (compositionLocked) {
-      return "Built-in preset — read-only · scrub to preview · Duplicate to edit.";
+      return "Built-in preset — read-only · Duplicate to compose.";
     }
     if (dirty) {
       return selectedPreset.mode === "constant"
-        ? "Unsaved draft — sliders edit constant levels · press Save."
-        : `Unsaved draft — scrubbing ${minsToTime(playheadMinutes)} · Save to keep.`;
+        ? "Composing draft — sliders edit constant levels · Save or Cancel."
+        : `Composing draft — scrubbing ${minsToTime(playheadMinutes)} · Save or Cancel.`;
     }
     if (selectedPreset.mode === "constant") {
-      return "EDIT — constant levels · changes stay draft until Save.";
+      return "Composing — constant levels · Save to keep.";
     }
     if (selectedKeyframeId) {
       const kf = selectedPreset.keyframes.find(
         (k) => k.id === selectedKeyframeId,
       );
-      if (!kf) return "EDIT — keyframe.";
+      if (!kf) return "Composing — keyframe.";
       const label = kf.label ? ` (${kf.label})` : "";
-      return `EDIT — keyframe at ${minsToTime(kf.minutes)}${label} · Save to keep.`;
+      return `Composing — keyframe at ${minsToTime(kf.minutes)}${label} · Save to keep.`;
     }
-    return `EDIT — scrubbing ${minsToTime(playheadMinutes)} · sliders write a keyframe · Save to keep.`;
+    return `Composing — scrubbing ${minsToTime(playheadMinutes)} · sliders write a keyframe · Save to keep.`;
   })();
-
-  const handleWorkspaceMode = (mode: TimelineWorkspaceMode) => {
-    setWorkspaceMode(mode);
-    if (mode === "live") {
-      setSelectedKeyframeId(null);
-      const mins = nowMinutes();
-      setPlayheadMinutes(mins);
-      if (selectedPreset) {
-        pushToBridge(interpolateAt(selectedPreset, mins));
-      }
-    }
-  };
 
   const mix = channelsToCss(local);
   /** Soft wash — tracks brightness; stay under ~0.28 so UI stays readable. */
@@ -477,7 +500,7 @@ export default function App() {
     selectedPreset && selectedPreset.mode === "schedule"
       ? describeNextEvent(
           selectedPreset,
-          isLive ? playheadMinutes : nowMinutes(),
+          isPlayback ? playheadMinutes : nowMinutes(),
         )
       : null;
 
@@ -586,8 +609,11 @@ export default function App() {
                 dirty={dirty}
                 selectedIsCommitted={selectedIsCommitted}
                 dirtyIds={dirtyIds}
-                editEnabled={!isLive}
+                composing={isComposing}
                 onSelect={(id) => {
+                  if (composeIntentId && composeIntentId !== id) {
+                    setComposeIntentId(null);
+                  }
                   setSelectedPresetId(id);
                   setSelectedKeyframeId(null);
                   const p = displayPresets.find((x) => x.id === id);
@@ -595,13 +621,19 @@ export default function App() {
                   if (p.mode === "constant") {
                     pushToBridge({ ...p.constantChannels });
                   } else {
-                    pushToBridge(interpolateAt(p, playheadMinutes));
+                    pushToBridge(
+                      interpolateAt(
+                        p,
+                        composeIntentId === id ? playheadMinutes : nowMinutes(),
+                      ),
+                    );
                   }
                 }}
                 onCreate={handleCreatePreset}
                 onRename={(id, name) =>
                   patchPreset(id, (p) => ({ ...p, name }))
                 }
+                onRequestCompose={handleRequestCompose}
                 onDelete={handleDeletePreset}
                 onModeChange={handleModeChange}
                 onSnapChange={(id, snap: SnapMode) =>
@@ -616,14 +648,13 @@ export default function App() {
                 preset={selectedPreset}
                 selectedKeyframeId={selectedKeyframeId}
                 playheadMinutes={playheadMinutes}
-                workspaceMode={workspaceMode}
+                composing={isComposing}
                 compositionLocked={compositionLocked}
                 descriptionEditable={
-                  !isLive && Boolean(selectedPreset) && !compositionLocked
+                  isComposing && Boolean(selectedPreset) && !compositionLocked
                 }
-                onWorkspaceModeChange={handleWorkspaceMode}
                 onScrub={(mins) => {
-                  if (isLive) return;
+                  if (isPlayback) return;
                   setPlayheadMinutes(mins);
                   setSelectedKeyframeId(null);
                   if (selectedPreset) {
@@ -631,7 +662,7 @@ export default function App() {
                   }
                 }}
                 onSelectKeyframe={(id) => {
-                  if (isLive || compositionLocked) return;
+                  if (isPlayback || compositionLocked) return;
                   setSelectedKeyframeId(id);
                   if (!id || !selectedPreset) return;
                   const kf = selectedPreset.keyframes.find((k) => k.id === id);

@@ -16,18 +16,19 @@ type Props = {
   dirty: boolean;
   /** Selected preset exists in committed storage (false = never saved). */
   selectedIsCommitted: boolean;
-  /** When false (LIVE), list stays selectable but all edit chrome is hidden. */
-  editEnabled?: boolean;
+  /** Compose session for selected user preset — shows mode/snap/Save chrome. */
+  composing?: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
+  /** Pencil / edit — enter compose on a user preset. */
+  onRequestCompose: (id: string) => void;
   onDelete: (id: string) => void;
   onModeChange: (id: string, mode: PresetMode) => void;
   onSnapChange: (id: string, snap: SnapMode) => void;
   onSave: () => void;
   onDiscard: () => void;
   onDuplicate: (id: string) => void;
-  /** Ids that have unsaved draft changes (for list badges). */
   dirtyIds?: Set<string>;
 };
 
@@ -36,10 +37,11 @@ export function PresetsPanel({
   selectedId,
   dirty: selectedDirty,
   selectedIsCommitted,
-  editEnabled = true,
+  composing = false,
   onSelect,
   onCreate,
   onRename,
+  onRequestCompose,
   onDelete,
   onModeChange,
   onSnapChange,
@@ -52,9 +54,15 @@ export function PresetsPanel({
   const [draftName, setDraftName] = useState("");
 
   const startRename = (preset: DayPreset) => {
-    if (!editEnabled || isBuiltinPreset(preset)) return;
+    if (isBuiltinPreset(preset)) return;
+    onRequestCompose(preset.id);
     setRenamingId(preset.id);
     setDraftName(preset.name);
+  };
+
+  const startCompose = (preset: DayPreset) => {
+    if (isBuiltinPreset(preset)) return;
+    onRequestCompose(preset.id);
   };
 
   const commitRename = () => {
@@ -72,26 +80,24 @@ export function PresetsPanel({
             Day presets
           </h3>
           <p className="mt-1 text-xs text-teal-100/50">
-            {editEnabled
-              ? "Built-ins are read-only · user presets save explicitly."
-              : "Select a preset to play · switch to EDIT to compose."}
+            {composing
+              ? "Composing draft · Save or Cancel when done."
+              : "Playing · New / Duplicate / Edit to compose."}
           </p>
         </div>
-        {editEnabled && (
-          <Button type="button" size="sm" variant="outline" onClick={onCreate}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New
-          </Button>
-        )}
+        <Button type="button" size="sm" variant="outline" onClick={onCreate}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          New
+        </Button>
       </div>
 
       <ul className="mt-3 flex max-h-[28rem] flex-col gap-1 overflow-y-auto pr-1">
         {presets.map((preset) => {
           const active = preset.id === selectedId;
           const builtin = isBuiltinPreset(preset);
-          const rowDirty = editEnabled && (dirtyIds?.has(preset.id) ?? false);
+          const rowDirty = dirtyIds?.has(preset.id) ?? false;
           const showUserChrome =
-            editEnabled && active && !builtin && renamingId !== preset.id;
+            composing && active && !builtin && renamingId !== preset.id;
           const mixBg = presetMixBackground(preset);
 
           return (
@@ -113,7 +119,6 @@ export function PresetsPanel({
                     : "border-teal-200/10 bg-depth-900/50 hover:border-teal-200/20",
                 )}
               >
-                {/* Rightmost ~25% mix summary */}
                 <div
                   aria-hidden
                   className="preset-mix-preview pointer-events-none absolute inset-y-0 right-0"
@@ -122,7 +127,7 @@ export function PresetsPanel({
 
                 <div className="relative z-[1] px-2.5 py-1.5">
                   <div className="flex items-center gap-2">
-                    {editEnabled && renamingId === preset.id ? (
+                    {renamingId === preset.id ? (
                       <form
                         className="flex min-w-0 flex-[0_1_70%]"
                         onClick={(e) => e.stopPropagation()}
@@ -147,7 +152,14 @@ export function PresetsPanel({
                             aria-label="Built-in"
                           />
                         )}
-                        <div className="min-w-0 truncate font-[Syne] text-sm font-semibold leading-snug text-teal-50/90">
+                        <div
+                          className="min-w-0 truncate font-[Syne] text-sm font-semibold leading-snug text-teal-50/90"
+                          onDoubleClick={(e) => {
+                            if (builtin) return;
+                            e.stopPropagation();
+                            startRename(preset);
+                          }}
+                        >
                           {preset.name}
                         </div>
                         {!builtin && (
@@ -163,7 +175,7 @@ export function PresetsPanel({
                       </div>
                     )}
 
-                    {editEnabled && renamingId !== preset.id && (
+                    {renamingId !== preset.id && (
                       <div
                         className={cn(
                           "ml-auto flex shrink-0 items-center gap-0.5",
@@ -173,25 +185,31 @@ export function PresetsPanel({
                         )}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {active && selectedDirty && (
+                        {active && composing && (
                           <>
-                            <button
-                              type="button"
-                              title="Save"
-                              className="rounded-md bg-teal-400/25 px-1.5 py-0.5 font-[Figtree] text-[10px] font-semibold tracking-wide text-teal-50 hover:bg-teal-400/35"
-                              onClick={onSave}
-                            >
-                              Save
-                            </button>
+                            {selectedDirty ? (
+                              <button
+                                type="button"
+                                title="Save"
+                                className="rounded-md bg-teal-400/25 px-1.5 py-0.5 font-[Figtree] text-[10px] font-semibold tracking-wide text-teal-50 hover:bg-teal-400/35"
+                                onClick={onSave}
+                              >
+                                Save
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               title={
-                                selectedIsCommitted ? "Discard" : "Cancel"
+                                selectedDirty && selectedIsCommitted
+                                  ? "Discard"
+                                  : "Cancel"
                               }
                               className="rounded-md px-1.5 py-0.5 font-[Figtree] text-[10px] font-semibold tracking-wide text-teal-100/70 hover:bg-teal-400/10 hover:text-teal-100"
                               onClick={onDiscard}
                             >
-                              {selectedIsCommitted ? "Discard" : "Cancel"}
+                              {selectedDirty && selectedIsCommitted
+                                ? "Discard"
+                                : "Cancel"}
                             </button>
                           </>
                         )}
@@ -207,9 +225,9 @@ export function PresetsPanel({
                           <>
                             <button
                               type="button"
-                              title="Rename"
+                              title="Edit"
                               className="rounded-md p-1 text-teal-100/50 transition hover:bg-teal-400/10 hover:text-teal-100"
-                              onClick={() => startRename(preset)}
+                              onClick={() => startCompose(preset)}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
