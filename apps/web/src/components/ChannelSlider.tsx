@@ -46,24 +46,31 @@ export function ChannelSlider({
           {pct}%
         </span>
       </div>
-      <input
-        id={`${id}-range`}
-        type="range"
-        min={0}
-        max={100}
-        value={pct}
-        disabled={disabled}
-        onChange={(e) => onChange(clampPct(Number(e.target.value)))}
-        className="channel-slider w-full"
+      <div
+        className="channel-slider-wrap"
         style={{
           ["--accent" as string]: accent,
           ["--pct" as string]: `${pct}%`,
         }}
-        aria-labelledby={id}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct}
-      />
+      >
+        <div className="channel-slider-track" aria-hidden>
+          <div className="channel-slider-fill" />
+        </div>
+        <input
+          id={`${id}-range`}
+          type="range"
+          min={0}
+          max={100}
+          value={pct}
+          disabled={disabled}
+          onChange={(e) => onChange(clampPct(Number(e.target.value)))}
+          className="channel-slider"
+          aria-labelledby={id}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+        />
+      </div>
     </div>
   );
 }
