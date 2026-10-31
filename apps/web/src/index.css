@@ -151,16 +151,19 @@ body {
   }
 }
 
-/* Custom track behind a transparent native range — avoids Chromium
-   accent-color / runnable-track painting the whole bar. */
+/* Custom track + thumb; native range is transparent hit-target only. */
 .channel-slider-wrap {
   --accent: #94d2dc;
   --pct: 0%;
+  --thumb: 0.875rem;
   position: relative;
   display: flex;
   align-items: center;
   height: 1rem;
   width: 100%;
+  isolation: isolate;
+  filter: none;
+  box-shadow: none;
 }
 
 .channel-slider-track {
@@ -174,6 +177,7 @@ body {
   box-shadow: none;
   filter: none;
   overflow: hidden;
+  z-index: 0;
 }
 
 .channel-slider-fill {
@@ -185,9 +189,26 @@ body {
   filter: none;
 }
 
+.channel-slider-thumb {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: var(--pct);
+  z-index: 2;
+  width: var(--thumb);
+  height: var(--thumb);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: none;
+  filter: none;
+  outline: none;
+}
+
 .channel-slider {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   width: 100%;
   height: 1rem;
   margin: 0;
@@ -199,6 +220,7 @@ body {
   accent-color: transparent;
   box-shadow: none;
   filter: none;
+  color: transparent;
 }
 
 .channel-slider:disabled {
@@ -206,8 +228,7 @@ body {
 }
 
 .channel-slider::-webkit-slider-runnable-track {
-  height: 0.35rem;
-  border-radius: 999px;
+  height: 1rem;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -216,15 +237,15 @@ body {
 .channel-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 0.875rem;
-  height: 0.875rem;
-  margin-top: calc((0.35rem - 0.875rem) / 2);
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: 0;
   border-radius: 999px;
-  background: #fff;
-  border: 2px solid var(--accent);
+  background: transparent;
+  border: 2px solid transparent;
   box-shadow: none;
   filter: none;
-  outline: none;
+  opacity: 0;
   cursor: pointer;
 }
 
@@ -233,28 +254,27 @@ body {
 }
 
 .channel-slider::-moz-range-track {
-  height: 0.35rem;
-  border-radius: 999px;
+  height: 1rem;
   background: transparent;
   border: none;
   box-shadow: none;
 }
 
 .channel-slider::-moz-range-progress {
-  height: 0.35rem;
-  border-radius: 999px;
+  height: 1rem;
   background: transparent;
   box-shadow: none;
 }
 
 .channel-slider::-moz-range-thumb {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--thumb);
+  height: var(--thumb);
   border-radius: 999px;
-  background: #fff;
-  border: 2px solid var(--accent);
+  background: transparent;
+  border: 2px solid transparent;
   box-shadow: none;
   filter: none;
+  opacity: 0;
   cursor: pointer;
 }
 

@@ -56,6 +56,8 @@ export function ChannelSlider({
         <div className="channel-slider-track" aria-hidden>
           <div className="channel-slider-fill" />
         </div>
+        {/* Custom thumb — native pseudo thumbs still bloom in Chromium */}
+        <div className="channel-slider-thumb" aria-hidden />
         <input
           id={`${id}-range`}
           type="range"
