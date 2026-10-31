@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChannelDial } from "@/components/ChannelDial";
+import { ChannelSlider } from "@/components/ChannelSlider";
 import {
   DayTimeline,
   type TimelineWorkspaceMode,
@@ -352,16 +352,16 @@ export default function App() {
     setPlayheadMinutes(snapped);
   };
 
-  const dialsLocked = isLive || compositionLocked;
+  const slidersLocked = isLive || compositionLocked;
 
-  const dialHint = (() => {
+  const sliderHint = (() => {
     if (isLive) {
       if (!selectedPreset) {
-        return "LIVE — dials locked · select a preset for clock-synced output.";
+        return "LIVE — sliders locked · select a preset for clock-synced output.";
       }
       return selectedPreset.mode === "constant"
-        ? "LIVE — constant levels · dials are read-only telemetry."
-        : `LIVE — ${minsToTime(playheadMinutes)} · dials show interpolated output.`;
+        ? "LIVE — constant levels · sliders are read-only telemetry."
+        : `LIVE — ${minsToTime(playheadMinutes)} · sliders show interpolated output.`;
     }
     if (!selectedPreset) return "Manual mix — no day preset selected.";
     if (compositionLocked) {
@@ -369,7 +369,7 @@ export default function App() {
     }
     if (dirty) {
       return selectedPreset.mode === "constant"
-        ? "Unsaved draft — dials edit constant levels · press Save."
+        ? "Unsaved draft — sliders edit constant levels · press Save."
         : `Unsaved draft — scrubbing ${minsToTime(playheadMinutes)} · Save to keep.`;
     }
     if (selectedPreset.mode === "constant") {
@@ -383,7 +383,7 @@ export default function App() {
       const label = kf.label ? ` (${kf.label})` : "";
       return `EDIT — keyframe at ${minsToTime(kf.minutes)}${label} · Save to keep.`;
     }
-    return `EDIT — scrubbing ${minsToTime(playheadMinutes)} · dials write a keyframe · Save to keep.`;
+    return `EDIT — scrubbing ${minsToTime(playheadMinutes)} · sliders write a keyframe · Save to keep.`;
   })();
 
   const handleWorkspaceMode = (mode: TimelineWorkspaceMode) => {
@@ -410,7 +410,7 @@ export default function App() {
       <header className="relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <div className="min-w-0 flex-1">
           {connected ? (
-            <p className="truncate text-sm text-teal-100/60">{dialHint}</p>
+            <p className="truncate text-sm text-teal-100/60">{sliderHint}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -462,7 +462,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <section className="controls-enter flex flex-1 flex-col gap-10 overflow-visible pt-2">
+          <section className="controls-enter flex flex-1 flex-col gap-6 overflow-visible pt-2">
             <div
               className="tank-preview"
               style={{
@@ -476,15 +476,15 @@ export default function App() {
             </div>
 
             <div
-              className={`grid grid-cols-2 gap-10 overflow-visible px-3 sm:gap-12 lg:grid-cols-4 lg:gap-8 lg:px-4 ${dialsLocked ? "pointer-events-none" : ""}`}
+              className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 ${slidersLocked ? "pointer-events-none" : ""}`}
             >
               {CHANNEL_META.map((ch) => (
-                <ChannelDial
+                <ChannelSlider
                   key={ch.key}
                   label={ch.label}
                   value={local[ch.key]}
                   accent={ch.accent}
-                  disabled={dialsLocked}
+                  disabled={slidersLocked}
                   onChange={(v) => updateChannel(ch.key, v)}
                 />
               ))}
@@ -518,9 +518,6 @@ export default function App() {
                 onSnapChange={(id, snap: SnapMode) =>
                   patchPreset(id, (p) => ({ ...p, snap }))
                 }
-                onDescriptionChange={(id, description) =>
-                  patchPreset(id, (p) => ({ ...p, description }))
-                }
                 onSave={handleSave}
                 onDiscard={handleDiscard}
                 onDuplicate={handleDuplicate}
@@ -532,6 +529,9 @@ export default function App() {
                 playheadMinutes={playheadMinutes}
                 workspaceMode={workspaceMode}
                 compositionLocked={compositionLocked}
+                descriptionEditable={
+                  !isLive && Boolean(selectedPreset) && !compositionLocked
+                }
                 onWorkspaceModeChange={handleWorkspaceMode}
                 onScrub={(mins) => {
                   if (isLive) return;
@@ -553,6 +553,13 @@ export default function App() {
                 }}
                 onMoveKeyframe={handleMoveKeyframe}
                 onAddKeyframe={handleAddKeyframe}
+                onDescriptionChange={(description) => {
+                  if (!selectedPresetId) return;
+                  patchPreset(selectedPresetId, (p) => ({
+                    ...p,
+                    description,
+                  }));
+                }}
               />
             </div>
 

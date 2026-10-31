@@ -23,13 +23,17 @@ type Props = {
   onDelete: (id: string) => void;
   onModeChange: (id: string, mode: PresetMode) => void;
   onSnapChange: (id: string, snap: SnapMode) => void;
-  onDescriptionChange?: (id: string, description: string) => void;
   onSave: () => void;
   onDiscard: () => void;
   onDuplicate: (id: string) => void;
   /** Ids that have unsaved draft changes (for list badges). */
   dirtyIds?: Set<string>;
 };
+
+function typeLabel(preset: DayPreset): string {
+  if (isBuiltinPreset(preset)) return "Built-in";
+  return preset.mode;
+}
 
 export function PresetsPanel({
   presets,
@@ -43,7 +47,6 @@ export function PresetsPanel({
   onDelete,
   onModeChange,
   onSnapChange,
-  onDescriptionChange,
   onSave,
   onDiscard,
   onDuplicate,
@@ -88,7 +91,7 @@ export function PresetsPanel({
         )}
       </div>
 
-      <ul className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
+      <ul className="mt-3 flex max-h-[22rem] flex-col gap-1 overflow-y-auto pr-1">
         {presets.map((preset) => {
           const active = preset.id === selectedId;
           const builtin = isBuiltinPreset(preset);
@@ -106,7 +109,7 @@ export function PresetsPanel({
                   }
                 }}
                 className={cn(
-                  "group flex items-start gap-2 rounded-xl border px-3 py-2.5 transition-colors",
+                  "group flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
                   active
                     ? "border-teal-400/35 bg-teal-400/10"
                     : "border-teal-200/10 bg-depth-900/50 hover:border-teal-200/20",
@@ -130,42 +133,26 @@ export function PresetsPanel({
                     />
                   </form>
                 ) : (
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-[Syne] text-sm font-semibold leading-snug text-teal-50/90">
-                        {preset.name}
-                      </div>
-                      {builtin && (
-                        <span className="rounded-full border border-teal-200/20 bg-teal-950/50 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/70 uppercase">
-                          Built-in
-                        </span>
-                      )}
-                      {rowDirty && (
-                        <span className="rounded-full border border-amber-300/25 bg-amber-950/40 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-amber-200/80 uppercase">
-                          Unsaved
-                        </span>
-                      )}
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="min-w-0 truncate font-[Syne] text-sm font-semibold leading-snug text-teal-50/90">
+                      {preset.name}
                     </div>
-                    <div className="mt-0.5 font-mono text-[10px] tracking-wide text-teal-100/45 uppercase">
-                      {preset.mode}
-                      {preset.mode === "schedule"
-                        ? ` · ${preset.keyframes.length} keyframe${preset.keyframes.length === 1 ? "" : "s"}`
-                        : ""}
-                      {builtin ? " · read-only" : ""}
-                    </div>
-                    {preset.description?.trim() ? (
-                      <p className="mt-1.5 text-[12px] leading-relaxed text-teal-100/60">
-                        {preset.description}
-                      </p>
-                    ) : null}
+                    <span className="shrink-0 rounded-full border border-teal-200/20 bg-teal-950/50 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/70 uppercase">
+                      {typeLabel(preset)}
+                    </span>
+                    {rowDirty && (
+                      <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-950/40 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-amber-200/80 uppercase">
+                        Unsaved
+                      </span>
+                    )}
                   </div>
                 )}
                 {editEnabled && (
-                  <div className="flex shrink-0 flex-col gap-0.5 pt-0.5">
+                  <div className="flex shrink-0 items-center gap-0.5">
                     <button
                       type="button"
                       title="Duplicate as editable copy"
-                      className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
+                      className="rounded-md p-1 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDuplicate(preset.id);
@@ -178,7 +165,7 @@ export function PresetsPanel({
                         <button
                           type="button"
                           title="Rename"
-                          className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
+                          className="rounded-md p-1 text-teal-100/40 opacity-0 transition hover:bg-teal-400/10 hover:text-teal-100 group-hover:opacity-100"
                           onClick={(e) => {
                             e.stopPropagation();
                             startRename(preset);
@@ -189,7 +176,7 @@ export function PresetsPanel({
                         <button
                           type="button"
                           title="Delete"
-                          className="rounded-md p-1.5 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
+                          className="rounded-md p-1 text-teal-100/40 opacity-0 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
                           onClick={(e) => {
                             e.stopPropagation();
                             onDelete(preset.id);
@@ -207,9 +194,9 @@ export function PresetsPanel({
         })}
       </ul>
 
-      {/* Detail / edit chrome — EDIT only */}
+      {/* Detail / edit chrome — EDIT only · description lives under timeline */}
       {editEnabled && selected && (
-        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-teal-200/10 bg-depth-900/40 p-3">
+        <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-teal-200/10 bg-depth-900/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="font-[Syne] text-sm font-semibold text-teal-50/90">
               {selected.name}
@@ -224,22 +211,6 @@ export function PresetsPanel({
               </span>
             ) : null}
           </div>
-
-          {selectedBuiltin ? (
-            <p className="text-[12px] leading-relaxed text-teal-100/65">
-              {selected.description}
-            </p>
-          ) : onDescriptionChange ? (
-            <textarea
-              value={selected.description ?? ""}
-              onChange={(e) =>
-                onDescriptionChange(selected.id, e.target.value)
-              }
-              rows={4}
-              placeholder="Add a description…"
-              className="w-full resize-y rounded-lg border border-teal-200/15 bg-depth-950/70 px-2.5 py-2 font-[Figtree] text-[12px] leading-relaxed text-teal-50/85 outline-none placeholder:text-teal-100/30 focus:border-teal-400/35"
-            />
-          ) : null}
 
           {!selectedBuiltin && (
             <>

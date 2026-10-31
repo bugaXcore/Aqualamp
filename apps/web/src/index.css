@@ -32,7 +32,6 @@ body {
 .app-shell {
   position: relative;
   min-height: 100vh;
-  /* Must stay visible — overflow:hidden clips CSS filter glow on dials. */
   overflow: visible;
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(45, 212, 191, 0.18), transparent 55%),
@@ -153,31 +152,73 @@ body {
 }
 
 .channel-slider {
+  --accent: #94d2dc;
+  --pct: 0%;
   appearance: none;
   height: 0.35rem;
   border-radius: 999px;
-  background: rgba(148, 210, 220, 0.14);
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--pct),
+    rgba(148, 210, 220, 0.14) var(--pct),
+    rgba(148, 210, 220, 0.14) 100%
+  );
   outline: none;
+  cursor: pointer;
+}
+
+.channel-slider:disabled {
+  cursor: default;
+}
+
+.channel-slider::-webkit-slider-runnable-track {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: transparent;
 }
 
 .channel-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 1rem;
-  height: 1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: -0.3rem;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: none;
   cursor: pointer;
 }
 
-.channel-slider::-moz-range-thumb {
-  width: 1rem;
-  height: 1rem;
-  border: none;
+.channel-slider:disabled::-webkit-slider-thumb {
+  cursor: default;
+}
+
+.channel-slider::-moz-range-track {
+  height: 0.35rem;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  background: transparent;
+  border: none;
+}
+
+.channel-slider::-moz-range-progress {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.channel-slider::-moz-range-thumb {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: none;
   cursor: pointer;
+}
+
+.channel-slider:disabled::-moz-range-thumb {
+  cursor: default;
 }
 
 .h-13 {

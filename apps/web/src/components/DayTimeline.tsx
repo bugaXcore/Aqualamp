@@ -33,11 +33,14 @@ type Props = {
   workspaceMode: TimelineWorkspaceMode;
   /** Built-in / locked composition — scrub OK, no keyframe writes */
   compositionLocked?: boolean;
+  /** When true (EDIT + user preset), description is an editable textarea. */
+  descriptionEditable?: boolean;
   onWorkspaceModeChange: (mode: TimelineWorkspaceMode) => void;
   onScrub: (minutes: number) => void;
   onSelectKeyframe: (id: string | null) => void;
   onMoveKeyframe: (id: string, minutes: number) => void;
   onAddKeyframe: (minutes: number, channels: Channels) => void;
+  onDescriptionChange?: (description: string) => void;
 };
 
 function yFor(value: number): number {
@@ -126,11 +129,13 @@ export function DayTimeline({
   playheadMinutes,
   workspaceMode,
   compositionLocked = false,
+  descriptionEditable = false,
   onWorkspaceModeChange,
   onScrub,
   onSelectKeyframe,
   onMoveKeyframe,
   onAddKeyframe,
+  onDescriptionChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draggingPlayhead, setDraggingPlayhead] = useState(false);
@@ -172,12 +177,16 @@ export function DayTimeline({
   const hint = !preset
     ? "Select a preset to compose or play back the day."
     : isLive
-      ? "LIVE — clock-synced playback · dials are telemetry"
+      ? "LIVE — clock-synced playback · sliders are telemetry"
       : compositionLocked
         ? "EDIT — built-in read-only · scrub to preview · Duplicate to edit"
         : preset.mode === "constant"
           ? "EDIT — constant levels · Save to keep changes"
-          : "EDIT — scrub CTI · dials write a keyframe · Save to keep";
+          : "EDIT — scrub CTI · sliders write a keyframe · Save to keep";
+
+  const description = preset?.description?.trim() ?? "";
+  const showDescriptionBlock =
+    Boolean(preset) && (descriptionEditable || description.length > 0);
 
   return (
     <div className="timeline-panel">
@@ -584,6 +593,24 @@ export function DayTimeline({
           <span>24:00</span>
         </div>
       </div>
+
+      {showDescriptionBlock && (
+        <div className="mt-3 px-1">
+          {descriptionEditable && onDescriptionChange ? (
+            <textarea
+              value={preset?.description ?? ""}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              rows={3}
+              placeholder="Add a description…"
+              className="w-full resize-y rounded-xl border border-teal-200/15 bg-depth-900/50 px-3 py-2 font-[Figtree] text-[12px] leading-relaxed text-teal-50/85 outline-none placeholder:text-teal-100/30 focus:border-teal-400/35"
+            />
+          ) : (
+            <p className="text-[12px] leading-relaxed text-teal-100/65">
+              {description}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
