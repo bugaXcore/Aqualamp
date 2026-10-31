@@ -12,6 +12,8 @@ import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import { useBridge } from "@/hooks/useBridge";
 import { useLamp } from "@/hooks/useLamp";
+import { ConnectGuide, explainError } from "@/components/ConnectGuide";
+import { LampControls } from "@/components/LampControls";
 import { channelsToCss, mixLuma, type Channels } from "@/lib/bridge";
 import {
   BUILTIN_PRESETS,
@@ -602,7 +604,7 @@ export default function App() {
               </Button>
               {(bridge.bridgeError || bridge.error) && (
                 <p className="max-w-sm text-sm text-rose-200/90">
-                  {bridge.error ?? bridge.bridgeError}
+                  {explainError(bridge.error ?? bridge.bridgeError ?? "")}
                   {bridge.error && (
                     <button
                       type="button"
@@ -617,6 +619,7 @@ export default function App() {
               {!bridge.socketOpen && !bridge.bridgeError && (
                 <p className="text-sm text-teal-100/50">Reaching bridge…</p>
               )}
+              <ConnectGuide viaBridge={useTransport === useBridge} />
             </div>
           </section>
         ) : (
@@ -635,6 +638,8 @@ export default function App() {
                 />
               ))}
             </div>
+
+            <LampControls lamp={bridge} />
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
               <PresetsPanel

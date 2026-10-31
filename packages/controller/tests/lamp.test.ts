@@ -64,9 +64,37 @@ describe("Lamp", () => {
       "FD F1 55 55 55 55 55 55",
       "FB F9 79 DF 74 EB 55 55",
       "FE F9 00 00 24 00 00 00",
+      "FD F1 55 55 55 55 55 55",
       "FB F9 00 00 00 00 55 55",
     ]);
     assert.deepEqual(lamp.current.channels, { red: 0, green: 0, blue: 0, uv: 0 });
+  });
+
+  it("tracks the mode and sends the timer", async () => {
+    const { transport, lamp } = setup();
+    await lamp.connect();
+    await lamp.setMode(2);
+    assert.equal(lamp.current.mode, 2);
+    await lamp.setTimer({ hours: 11, minutes: 48 }, { hours: 18, minutes: 5 }, 2);
+    assert.deepEqual(hex(transport).slice(3), [
+      "FD F2 55 55 55 55 55 55",
+      "FE F9 11 48 18 05 00 02",
+    ]);
+  });
+
+  it("sends brightness-corrected levels only when calibrated", async () => {
+    const { transport, lamp } = setup();
+    await lamp.connect();
+    lamp.setChannels({ red: 50 });
+    await tick();
+    assert.equal(hex(transport).at(-1), "FB F9 76 00 00 00 55 55");
+    lamp.setCalibrated(true);
+    await tick();
+    const corrected = transport.sent.at(-1)![2];
+    assert.ok(corrected < 0x76, `expected less than raw 0x76, got ${corrected}`);
+    lamp.setCalibrated(false);
+    await tick();
+    assert.equal(hex(transport).at(-1), "FB F9 76 00 00 00 55 55");
   });
 
   it("re-sends the colour after a drop and reconnect", async () => {

@@ -17,12 +17,27 @@ export type BridgeHello = {
   state: ConnectionState;
   channels: Channels;
   mock: boolean;
+  mode?: 1 | 2;
+  calibrated?: boolean;
 };
 
 export type BridgeState = {
   type: "state";
   state: ConnectionState;
   mock: boolean;
+  mode?: 1 | 2;
+  calibrated?: boolean;
+};
+
+/** Lamp-side controls exposed by both transports (bridge and Web Bluetooth). */
+export type LampTime = { hours: number; minutes: number };
+export type LampControlsApi = {
+  mode: 1 | 2;
+  calibrated: boolean;
+  power: (on: boolean) => void;
+  setMode: (mode: 1 | 2) => void;
+  setTimer: (sunrise: LampTime, sunset: LampTime, fade: number) => void;
+  setCalibrated: (on: boolean) => void;
 };
 
 export type BridgeChannels = {

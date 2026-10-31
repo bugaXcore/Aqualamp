@@ -4,6 +4,7 @@ import {
   normalizeBridgeChannels,
   type Channels,
   type ConnectionState,
+  type LampTime,
   type ServerMessage,
 } from "@/lib/bridge";
 
@@ -15,6 +16,8 @@ export function useBridge(url = defaultBridgeUrl()) {
   const [state, setState] = useState<ConnectionState>("disconnected");
   const [channels, setChannels] = useState<Channels>(EMPTY);
   const [mock, setMock] = useState(true);
+  const [mode, setModeState] = useState<1 | 2>(1);
+  const [calibrated, setCalibratedState] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
 
@@ -58,11 +61,15 @@ export function useBridge(url = defaultBridgeUrl()) {
             setState(msg.state);
             setChannels(normalizeBridgeChannels(msg.channels));
             setMock(msg.mock);
+            setModeState(msg.mode ?? 1);
+            setCalibratedState(msg.calibrated ?? false);
             setError(null);
             break;
           case "state":
             setState(msg.state);
             setMock(msg.mock);
+            if (msg.mode) setModeState(msg.mode);
+            if (msg.calibrated !== undefined) setCalibratedState(msg.calibrated);
             if (msg.state !== "error") setError(null);
             break;
           case "channels":
@@ -105,5 +112,12 @@ export function useBridge(url = defaultBridgeUrl()) {
     disconnect: () => send({ type: "disconnect" }),
     setChannels: (partial: Partial<Channels>) =>
       send({ type: "setChannels", channels: partial }),
+    mode,
+    calibrated,
+    power: (on: boolean) => send({ type: "power", on }),
+    setMode: (next: 1 | 2) => send({ type: "setMode", mode: next }),
+    setTimer: (sunrise: LampTime, sunset: LampTime, fade: number) =>
+      send({ type: "setTimer", sunrise, sunset, fade }),
+    setCalibrated: (on: boolean) => send({ type: "setCalibrated", on }),
   };
 }

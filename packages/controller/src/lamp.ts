@@ -4,6 +4,7 @@ import {
   modeFrame,
   powerOffFrame,
   powerOnFrames,
+  presetFrame,
   sessionSetupFrames,
   timerFrame,
   bytesToHex,
@@ -11,18 +12,24 @@ import {
   type Frame,
 } from "./frames.js";
 import type { LampTransport } from "./transport.js";
+import { calibrateChannels, MEASURED_CURVES, type CalibrationCurves } from "./calibration.js";
 import { DEFAULT_CHANNELS, normalizeChannels, type Channels, type ConnectionState } from "./types.js";
 
 export type LampSnapshot = {
   state: ConnectionState;
   channels: Channels;
   error: string | null;
+  mode: 1 | 2;
+  calibrated: boolean;
 };
 
 export type LampOptions = {
   /** Pause between frames of one multi-frame command. The bench used 500 ms. */
   frameGapMs?: number;
   now?: () => Date;
+  /** Send brightness-corrected levels so sliders look linear. Default off (raw wire scale). */
+  calibrated?: boolean;
+  curves?: CalibrationCurves;
 };
 
 /**
@@ -30,7 +37,14 @@ export type LampOptions = {
  * latest colour (never a queue of stale ones) and only when it changed.
  */
 export class Lamp {
-  private snapshot: LampSnapshot = { state: "disconnected", channels: { ...DEFAULT_CHANNELS }, error: null };
+  private snapshot: LampSnapshot = {
+    state: "disconnected",
+    channels: { ...DEFAULT_CHANNELS },
+    error: null,
+    mode: 1,
+    calibrated: false,
+  };
+  private readonly curves: CalibrationCurves;
   private listeners = new Set<(s: LampSnapshot) => void>();
   private desired: Channels = { ...DEFAULT_CHANNELS };
   // Until a colour is set, connecting must not blank a lamp that is already lit.
@@ -48,6 +62,8 @@ export class Lamp {
   ) {
     this.frameGapMs = options.frameGapMs ?? 500;
     this.now = options.now ?? (() => new Date());
+    this.curves = options.curves ?? MEASURED_CURVES;
+    this.snapshot.calibrated = options.calibrated ?? false;
     this.unsubscribe = transport.onState((state, error) => this.onTransportState(state, error));
   }
 
@@ -72,7 +88,7 @@ export class Lamp {
       await this.transport.connect(lampId);
       this.lastSentHex = null;
       await this.sendSequence(sessionSetupFrames(this.now()));
-      this.update({ state: "connected" });
+      this.update({ state: "connected", mode: 1 });
       this.scheduleFlush();
     } catch (error) {
       await this.transport.disconnect().catch(() => {});
@@ -96,29 +112,45 @@ export class Lamp {
   async powerOff(): Promise<void> {
     this.desired = { ...DEFAULT_CHANNELS };
     this.hasDesired = true;
-    this.update({ channels: this.desired });
-    await this.command([powerOffFrame()], DEFAULT_CHANNELS);
+    this.update({ channels: this.desired, mode: 1 });
+    await this.command([modeFrame(1), powerOffFrame()]);
+    this.lastSentHex = bytesToHex(this.desiredFrame());
   }
 
   /** The official app's power-on: mode 1, preset 3, always-on window. */
   async powerOn(): Promise<void> {
     await this.command(powerOnFrames());
+    this.desired = { red: 51, green: 95, blue: 49, uv: 100 };
+    this.hasDesired = true;
+    this.lastSentHex = bytesToHex(presetFrame(2));
+    this.update({ channels: this.desired, mode: 1 });
   }
 
   async setMode(mode: 1 | 2): Promise<void> {
     await this.command([modeFrame(mode)]);
+    this.update({ mode });
   }
 
   async setTimer(sunrise: ClockTime, sunset: ClockTime, fade = 0): Promise<void> {
     await this.command([timerFrame(sunrise, sunset, fade)]);
   }
 
-  private async command(frames: Frame[], channelsAfter?: Channels): Promise<void> {
+  /** Switches between the raw wire scale and brightness-corrected levels. */
+  setCalibrated(calibrated: boolean): void {
+    this.update({ calibrated });
+    this.scheduleFlush();
+  }
+
+  private desiredFrame(): Frame {
+    const levels = this.snapshot.calibrated ? calibrateChannels(this.desired, this.curves) : this.desired;
+    return colorFrame(...toTuple(levels));
+  }
+
+  private async command(frames: Frame[]): Promise<void> {
     this.requireConnected();
     // Colour writes are re-sent after a command that may change what the lamp shows.
     this.lastSentHex = null;
     await this.sendSequence(frames);
-    if (channelsAfter) this.lastSentHex = bytesToHex(colorFrame(...toTuple(channelsAfter)));
   }
 
   private requireConnected(): void {
@@ -134,7 +166,7 @@ export class Lamp {
   private async flush(): Promise<void> {
     this.flushQueued = false;
     if (this.snapshot.state !== "connected") return;
-    const frame = colorFrame(...toTuple(this.desired));
+    const frame = this.desiredFrame();
     const hex = bytesToHex(frame);
     if (hex === this.lastSentHex) return;
     try {
@@ -145,7 +177,7 @@ export class Lamp {
       return;
     }
     // A newer value arrived during the write.
-    if (bytesToHex(colorFrame(...toTuple(this.desired))) !== hex) this.scheduleFlush();
+    if (bytesToHex(this.desiredFrame()) !== hex) this.scheduleFlush();
   }
 
   private sendSequence(frames: Frame[]): Promise<void> {
