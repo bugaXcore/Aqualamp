@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link2, Plus, Trash2 } from "lucide-react";
 import { ChannelSlider } from "@/components/ChannelSlider";
 import { SolarAssistStrip } from "@/components/SolarAssistStrip";
@@ -21,6 +21,19 @@ const PAD_TOP = 28;
 const PAD_BOTTOM = 22;
 const Y0 = H - PAD_BOTTOM;
 const YSPAN = H - PAD_TOP - PAD_BOTTOM;
+
+/** Screen-space diamond points, countering preserveAspectRatio=none distortion. */
+function diamondPoints(
+  cx: number,
+  cy: number,
+  screenR: number,
+  sx: number,
+  sy: number,
+): string {
+  const rx = screenR / Math.max(sx, 0.001);
+  const ry = screenR / Math.max(sy, 0.001);
+  return `${cx},${cy - ry} ${cx + rx},${cy} ${cx},${cy + ry} ${cx - rx},${cy}`;
+}
 
 const CHANNEL_STROKE: Record<keyof Channels, string> = {
   red: "#f87171",
@@ -165,6 +178,24 @@ export function DayTimeline({
     edge: "start" | "end";
   } | null>(null);
   const [timeDraft, setTimeDraft] = useState<string | null>(null);
+  /** Client px size — used so diamonds/chips stay undistorted under none-aspect SVG. */
+  const [svgPx, setSvgPx] = useState({ w: W, h: H });
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) setSvgPx({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const sx = svgPx.w / W;
+  const sy = svgPx.h / H;
 
   const isPlayback = !composing;
   const canCompose = composing && !compositionLocked;
@@ -313,6 +344,7 @@ export function DayTimeline({
             </div>
           )}
 
+          <div className="timeline-plot relative">
           <svg
             ref={svgRef}
             className={cn(
@@ -508,9 +540,8 @@ export function DayTimeline({
               sorted.map((kf) => {
                 const x = (kf.minutes / 1440) * W;
                 const active = activeKeyframe?.id === kf.id;
-                const r = active ? 5.5 : 4;
-                const diamond = (cy: number) =>
-                  `${x},${cy - r} ${x + r},${cy} ${x},${cy + r} ${x - r},${cy}`;
+                /** Screen px half-diagonal — tiny but readable diamonds. */
+                const screenR = active ? 7 : 5.75;
                 return (
                   <g
                     key={kf.id}
@@ -545,6 +576,7 @@ export function DayTimeline({
                       }
                       strokeWidth={active ? 1.5 : 1}
                       strokeDasharray={active ? undefined : "2 5"}
+                      vectorEffect="non-scaling-stroke"
                     />
                     {(
                       [
@@ -556,42 +588,20 @@ export function DayTimeline({
                     ).map(([ch, val]) => (
                       <polygon
                         key={ch}
-                        points={diamond(yFor(val))}
+                        points={diamondPoints(
+                          x,
+                          yFor(val),
+                          screenR,
+                          sx,
+                          sy,
+                        )}
                         fill={CHANNEL_STROKE[ch]}
                         stroke="#061018"
-                        strokeWidth={1.15}
-                        opacity={0.95}
+                        strokeWidth={1.25}
+                        vectorEffect="non-scaling-stroke"
+                        opacity={0.97}
                       />
                     ))}
-                    <rect
-                      x={x - 20}
-                      y={6}
-                      width={40}
-                      height={14}
-                      rx={4}
-                      fill={
-                        active
-                          ? "rgba(45, 212, 191, 0.9)"
-                          : "rgba(8, 24, 36, 0.92)"
-                      }
-                      stroke={
-                        active
-                          ? "rgba(94, 234, 212, 0.5)"
-                          : "rgba(148, 210, 220, 0.12)"
-                      }
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={x}
-                      y={16}
-                      textAnchor="middle"
-                      fill={active ? "#061018" : "rgba(186, 230, 228, 0.8)"}
-                      fontSize={9}
-                      fontFamily="ui-monospace, monospace"
-                      fontWeight={700}
-                    >
-                      {minsToTime(kf.minutes)}
-                    </text>
                   </g>
                 );
               })}
@@ -601,7 +611,7 @@ export function DayTimeline({
               sorted.map((kf) => {
                 const x = (kf.minutes / 1440) * W;
                 return (
-                  <g key={`live-${kf.id}`} opacity={0.45} pointerEvents="none">
+                  <g key={`live-${kf.id}`} opacity={0.5} pointerEvents="none">
                     <line
                       x1={x}
                       y1={PAD_TOP + 4}
@@ -610,6 +620,7 @@ export function DayTimeline({
                       stroke="rgba(148, 210, 220, 0.2)"
                       strokeWidth={1}
                       strokeDasharray="2 4"
+                      vectorEffect="non-scaling-stroke"
                     />
                     {(
                       [
@@ -618,21 +629,16 @@ export function DayTimeline({
                         ["blue", kf.channels.blue],
                         ["uv", kf.channels.uv],
                       ] as const
-                    ).map(([ch, val]) => {
-                      const cy = yFor(val);
-                      const r = 3;
-                      return (
-                        <circle
-                          key={ch}
-                          cx={x}
-                          cy={cy}
-                          r={r}
-                          fill={CHANNEL_STROKE[ch]}
-                          stroke="#061018"
-                          strokeWidth={1}
-                        />
-                      );
-                    })}
+                    ).map(([ch, val]) => (
+                      <polygon
+                        key={ch}
+                        points={diamondPoints(x, yFor(val), 4.5, sx, sy)}
+                        fill={CHANNEL_STROKE[ch]}
+                        stroke="#061018"
+                        strokeWidth={1}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
                   </g>
                 );
               })}
@@ -660,36 +666,50 @@ export function DayTimeline({
                 stroke="#5eead4"
                 strokeWidth={2}
                 opacity={0.95}
+                vectorEffect="non-scaling-stroke"
               />
               <polygon
-                points={`${(playheadMinutes / 1440) * W - 7},2 ${(playheadMinutes / 1440) * W + 7},2 ${(playheadMinutes / 1440) * W + 7},8 ${(playheadMinutes / 1440) * W},16 ${(playheadMinutes / 1440) * W - 7},8`}
+                points={diamondPoints(
+                  (playheadMinutes / 1440) * W,
+                  10,
+                  6,
+                  sx,
+                  sy,
+                )}
                 fill="#5eead4"
                 stroke="#061018"
                 strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
               />
-              <rect
-                x={(playheadMinutes / 1440) * W - 22}
-                y={Y0 + 2}
-                width={44}
-                height={14}
-                rx={4}
-                fill="rgba(45, 212, 191, 0.18)"
-                stroke="rgba(94, 234, 212, 0.35)"
-                strokeWidth={1}
-              />
-              <text
-                x={(playheadMinutes / 1440) * W}
-                y={Y0 + 12}
-                textAnchor="middle"
-                fill="#99f6e4"
-                fontSize={9}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={700}
-              >
-                {minsToTime(playheadMinutes)}
-              </text>
             </g>
           </svg>
+
+          {/* HTML chips — avoid SVG none-aspect text squash */}
+          {schedule && canCompose
+            ? sorted.map((kf) => {
+                const active = activeKeyframe?.id === kf.id;
+                return (
+                  <div
+                    key={`chip-${kf.id}`}
+                    className={cn(
+                      "timeline-kf-chip pointer-events-none absolute top-1.5 z-[2] -translate-x-1/2",
+                      active && "is-active",
+                    )}
+                    style={{ left: `${(kf.minutes / 1440) * 100}%` }}
+                  >
+                    {minsToTime(kf.minutes)}
+                  </div>
+                );
+              })
+            : null}
+
+          <div
+            className="timeline-cti-chip pointer-events-none absolute bottom-1.5 z-[2] -translate-x-1/2"
+            style={{ left: `${(playheadMinutes / 1440) * 100}%` }}
+          >
+            {minsToTime(playheadMinutes)}
+          </div>
+          </div>
 
           <div className="flex justify-between px-3 pb-1 font-mono text-[10px] text-teal-100/40">
             <span>00:00</span>
