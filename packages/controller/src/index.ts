@@ -15,6 +15,7 @@ export {
   assertProtocolReadyForHardware,
   isPlaceholderId,
 } from "./protocol.js";
+export * as frames from "./frames.js";
 export {
   DEFAULT_CHANNELS,
   clampChannel,
