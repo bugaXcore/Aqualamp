@@ -1,4 +1,4 @@
-import type { Channels } from "@/lib/bridge";
+import { channelsToCss, type Channels } from "@/lib/bridge";
 
 export type PresetMode = "constant" | "schedule";
 export type SnapMode = "free" | "hour";
@@ -311,6 +311,32 @@ export function interpolateAt(
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;
   const progress = linear * linear * (3 - 2 * linear);
   return lerpChannels(p1.channels, p2.channels, progress);
+}
+
+/**
+ * CSS background summarizing a preset mix for list-row previews.
+ * Constant → solid RGB(+UV violet). Schedule → horizontal day strip.
+ */
+export function presetMixBackground(
+  preset: DayPreset,
+  samples = 24,
+): string {
+  if (preset.mode === "constant") {
+    return channelsToCss(preset.constantChannels);
+  }
+  if (preset.keyframes.length === 0) {
+    return channelsToCss(ZERO_CHANNELS);
+  }
+  if (preset.keyframes.length === 1) {
+    return channelsToCss(preset.keyframes[0]!.channels);
+  }
+  const stops: string[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const mins = Math.round((i / samples) * 1439);
+    const pct = ((i / samples) * 100).toFixed(2);
+    stops.push(`${channelsToCss(interpolateAt(preset, mins))} ${pct}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
 }
 
 /** Load committed user presets only (never builtins). */
