@@ -63,7 +63,7 @@ export default function App() {
   const [savedUserPresets, setSavedUserPresets] = useState<DayPreset[]>([]);
   /** Draft overlays + never-saved new presets. */
   const [drafts, setDrafts] = useState<Record<string, DayPreset>>({});
-  /** Default = free mix so top sliders never open dead. */
+  /** Default = Sliders mode so top controls never open dead. */
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
     FREE_MANUAL_PRESET_ID,
   );
@@ -113,7 +113,7 @@ export default function App() {
   const selectedBuiltin = selectedPreset
     ? isBuiltinPreset(selectedPreset)
     : false;
-  /** Built-in day looks are read-only; free mix is not locked. */
+  /** Built-in day looks are read-only; Sliders mode is not locked. */
   const compositionLocked = selectedBuiltin && !isFreeManual;
 
   const selectedIsCommitted = Boolean(
@@ -156,7 +156,7 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedPreset) return;
-    /** Free mix is user-driven — never overwrite local from playhead ticks. */
+    /** Sliders mode is user-driven — never overwrite local from playhead ticks. */
     if (isFreeManualPreset(selectedPreset)) return;
     if (isPlayback) {
       const channels = interpolateAt(selectedPreset, playheadMinutes);
@@ -184,11 +184,11 @@ export default function App() {
     compositionLocked,
   ]);
 
-  /** Push free-mix starter once connected so mock lamp matches open state. */
+  /** Push Sliders mode starter once connected so mock lamp matches open state. */
   useEffect(() => {
     if (!connected || !isFreeManual) return;
     setChannelsRef.current(local);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on connect+free
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on connect+sliders mode
   }, [connected, isFreeManual]);
 
   const pushToBridge = (channels: Channels) => {
@@ -487,11 +487,11 @@ export default function App() {
 
   const sliderHint = (() => {
     if (isFreeManual) {
-      return "Free mix — drag R/G/B/UV anytime · day presets below for schedules.";
+      return "Sliders mode — drag R/G/B/UV anytime · day presets below for schedules.";
     }
     if (isPlayback) {
       if (!selectedPreset) {
-        return "Playing — sliders locked · Free mix or New / Duplicate to compose.";
+        return "Playing — sliders locked · Sliders mode or New / Duplicate to compose.";
       }
       return selectedPreset.mode === "constant"
         ? "Playing — constant levels · read-only telemetry."

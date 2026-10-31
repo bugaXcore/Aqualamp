@@ -216,14 +216,16 @@ export function PresetsPanel({
                             </button>
                           </>
                         )}
-                        <button
-                          type="button"
-                          title="Duplicate as editable copy"
-                          className="rounded-md p-1 text-teal-100/50 transition hover:bg-teal-400/10 hover:text-teal-100"
-                          onClick={() => onDuplicate(preset.id)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
+                        {!freeManual && (
+                          <button
+                            type="button"
+                            title="Duplicate as editable copy"
+                            className="rounded-md p-1 text-teal-100/50 transition hover:bg-teal-400/10 hover:text-teal-100"
+                            onClick={() => onDuplicate(preset.id)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {!builtin && (
                           <>
                             <button

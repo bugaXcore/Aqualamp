@@ -85,14 +85,14 @@ export const FREE_MANUAL_CHANNELS: Channels = ch(42, 48, 55, 18);
 
 /**
  * Hardcoded built-in library — source of truth in code, never editable,
- * never stored in localStorage. Free/manual is always first.
+ * never stored in localStorage. Sliders mode is always first.
  */
 export const BUILTIN_PRESETS: DayPreset[] = [
   {
     id: FREE_MANUAL_PRESET_ID,
-    name: "Free mix",
+    name: "Sliders mode",
     description:
-      "Manual R/G/B/UV — drag the top sliders anytime. Day presets below drive schedules and locked looks; Duplicate any of them to compose your own curve.",
+      "Drag the top R/G/B/UV sliders anytime. Day presets below drive schedules and locked looks — Duplicate those to compose your own curve.",
     mode: "constant",
     constantChannels: { ...FREE_MANUAL_CHANNELS },
     keyframes: [],
@@ -186,7 +186,7 @@ export function isBuiltinPreset(preset: DayPreset | string): boolean {
   return BUILTIN_IDS.has(preset.id);
 }
 
-/** Free / manual mix — first preset; top sliders stay live. */
+/** Sliders mode — first preset; top R/G/B/UV stay live. */
 export function isFreeManualPreset(preset: DayPreset | string): boolean {
   const id = typeof preset === "string" ? preset : preset.id;
   return id === FREE_MANUAL_PRESET_ID;

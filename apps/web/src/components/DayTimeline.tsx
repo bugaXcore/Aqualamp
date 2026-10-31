@@ -258,9 +258,9 @@ export function DayTimeline({
     ctiPct < 28 ? "left" : ctiPct > 72 ? "right" : "center";
 
   const hint = !preset
-    ? "Select Free mix for live sliders · Duplicate or New to compose."
+    ? "Select Sliders mode for live controls · Duplicate or New to compose."
     : isFreeManualPreset(preset)
-      ? "Free mix · top R/G/B/UV drive the lamp · day presets for schedules"
+      ? "Sliders mode · top R/G/B/UV drive the lamp · day presets for schedules"
       : isPlayback
         ? compositionLocked
           ? "Playing · read-only builtin · Duplicate to compose"
