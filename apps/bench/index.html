@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101c22">
+    <title>Aqualamp bench</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <p class="eyebrow">WEEK AQUA · S300 PRO</p>
+          <h1>Aqualamp <span>bench</span></h1>
+        </div>
+        <div class="connection-pill" id="connection-pill" data-state="idle">
+          <span class="status-dot"></span><span id="connection-label">Not connected</span>
+        </div>
+      </header>
+
+      <section class="connect-panel" aria-labelledby="connect-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">DEVICE LINK</p>
+            <h2 id="connect-title">Find your lamp</h2>
+          </div>
+          <span class="secure-note" id="support-note">Checking Bluetooth support…</span>
+        </div>
+        <p class="intro">Keep the official app closed. Choose a scan mode, then select the lamp in Chrome’s device picker.</p>
+        <div class="actions">
+          <button class="button button-primary" id="scan-all">Scan all devices</button>
+          <button class="button button-secondary" id="scan-prefix">Scan B3.0 devices</button>
+          <button class="button button-secondary" id="connect" disabled>Connect</button>
+          <button class="button button-quiet" id="disconnect" disabled>Disconnect</button>
+          <button class="button button-quiet" id="forget" disabled>Forget</button>
+        </div>
+        <div class="device-readout" id="device-readout" aria-live="polite">
+          <span class="readout-label">SELECTED DEVICE</span>
+          <strong id="device-name">No device selected</strong>
+          <span class="readout-meta" id="device-meta">A device name and ID will appear here.</span>
+        </div>
+        <p class="error-message" id="error-message" role="alert" hidden></p>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="explorer-panel" aria-labelledby="explorer-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">GATT MAP</p>
+              <h2 id="explorer-title">Services & characteristics</h2>
+            </div>
+            <div class="report-actions">
+              <button class="text-button" id="export-report" disabled>Export report</button>
+              <button class="text-button" id="send-report" disabled>Send report to PC</button>
+            </div>
+          </div>
+          <div id="gatt-tree" class="gatt-tree">
+            <div class="empty-state">
+              <span class="empty-glyph" aria-hidden="true">⌁</span>
+              <p>Connect to the lamp to inspect its services.</p>
+            </div>
+          </div>
+          <p class="report-status" id="report-status" aria-live="polite"></p>
+        </section>
+
+        <section class="traffic-panel" aria-labelledby="traffic-title">
+          <div class="section-heading traffic-heading">
+            <div>
+              <p class="eyebrow">LIVE TRACE</p>
+              <h2 id="traffic-title">Traffic console</h2>
+            </div>
+            <div class="traffic-tools">
+              <select id="traffic-filter" aria-label="Filter traffic">
+                <option value="all">All events</option>
+                <option value="TX">TX</option>
+                <option value="RX">RX</option>
+                <option value="EVT">Events</option>
+              </select>
+              <button class="text-button" id="copy-log">Copy</button>
+              <button class="text-button" id="download-log">Save</button>
+            </div>
+          </div>
+          <div class="traffic-log" id="traffic-log" role="log" aria-live="polite" aria-relevant="additions">
+            <div class="log-empty">Waiting for a device operation…</div>
+          </div>
+          <div class="console-footer">
+            <span id="event-count">0 events</span>
+            <button class="text-button" id="clear-log">Clear log</button>
+          </div>
+        </section>
+      </div>
+      <section class="workbench-panel" aria-labelledby="workbench-title">
+        <div class="section-heading workbench-heading">
+          <div>
+            <p class="eyebrow">M2 · CONTROL TESTS</p>
+            <h2 id="workbench-title">Channel test bench</h2>
+          </div>
+          <button class="button button-quiet" id="stop-test" disabled>Stop sequence</button>
+        </div>
+        <p class="intro">Run one channel at a time, or compare all four at equal levels. Each sequence steps 0 → 25 → 50 → 75 → 100 → 0, with a pause between writes.</p>
+        <div class="test-groups">
+          <div class="test-group">
+            <h3>Isolate a channel</h3>
+            <p>Other channels stay at zero. Watch the lamp after each step.</p>
+            <div class="test-buttons">
+              <button class="mini-button channel-test" data-channel="R" disabled>Test red</button>
+              <button class="mini-button channel-test" data-channel="G" disabled>Test green</button>
+              <button class="mini-button channel-test" data-channel="B" disabled>Test blue</button>
+              <button class="mini-button channel-test" data-channel="UV" disabled>Test UV</button>
+            </div>
+          </div>
+          <div class="test-group">
+            <h3>One-shot channel check</h3>
+            <p>Set one channel and leave it there. This is the encoded level, not a calibrated measure of visible brightness.</p>
+            <label class="level-control" for="reference-level">
+              <span>Channel level</span>
+              <input id="reference-level" type="range" min="0" max="100" step="1" value="25">
+              <output id="reference-level-output" for="reference-level">25%</output>
+            </label>
+            <div class="test-buttons">
+              <button class="mini-button channel-reference" data-channel="R" disabled>Red 25%</button>
+              <button class="mini-button channel-reference" data-channel="G" disabled>Green 25%</button>
+              <button class="mini-button channel-reference" data-channel="B" disabled>Blue 25%</button>
+              <button class="mini-button channel-reference" data-channel="UV" disabled>UV 25%</button>
+            </div>
+            <h3 class="combined-heading">Compare combined intensity</h3>
+            <p>All four channels use the same level. This is not a separate master-dimmer command.</p>
+            <button class="mini-button" id="test-combined" disabled>Test all channels</button>
+          </div>
+        </div>
+        <div class="test-groups secondary-tests">
+          <div class="test-group">
+            <h3>Timer</h3>
+            <p>Sends the clock and the sunrise/sunset frame decoded from the official app. Set the sunset later than the phone's current time, then check the official app afterwards.</p>
+            <div class="fan-row">
+              <label for="timer-sunrise">Sunrise</label>
+              <input id="timer-sunrise" type="time" value="11:48">
+              <label for="timer-sunset">Sunset</label>
+              <input id="timer-sunset" type="time" value="18:05">
+              <label for="timer-fade">Fade</label>
+              <select id="timer-fade" aria-describedby="timer-fade-note">
+                <option value="0">0 h</option>
+                <option value="1">0.5 h</option>
+                <option value="2">1 h</option>
+                <option value="3">1.5 h</option>
+                <option value="4">2 h</option>
+                <option value="5">2.5 h</option>
+              </select>
+            </div>
+            <span class="test-note" id="timer-fade-note">Codes 0–5 come from the official app's code. The app only accepts a fade when the on-window is longer than code × 60 minutes.</span>
+            <div class="test-buttons">
+              <button class="mini-button" id="sync-clock" disabled>Sync clock</button>
+              <button class="mini-button" id="send-timer" disabled>Send timer</button>
+            </div>
+          </div>
+        </div>
+        <div class="test-groups secondary-tests">
+          <div class="test-group">
+            <h3>Power and mode</h3>
+            <p>Frames copied from the official app's code, not yet confirmed on the lamp. Power off sends all four channels at zero; power on also overwrites the timer with an always-on window. Send one at a time.</p>
+            <div class="test-buttons">
+              <button class="mini-button" id="send-power-off" disabled>Power off</button>
+              <button class="mini-button" id="send-power-on" disabled>Power on</button>
+              <button class="mini-button" id="send-mode-1" disabled>Mode 1 (timer)</button>
+              <button class="mini-button" id="send-mode-2" disabled>Mode 2 (advanced)</button>
+            </div>
+            <div class="fan-row">
+              <label for="preset-select">Preset</label>
+              <select id="preset-select">
+                <option value="1">Preset 1</option><option value="2">Preset 2</option>
+                <option value="3">Preset 3</option><option value="4">Preset 4</option>
+                <option value="5">Preset 5</option><option value="6">Preset 6 (no UV)</option>
+                <option value="7">Preset 7 (no UV)</option><option value="8">Preset 8 (no UV)</option>
+                <option value="9">Preset 9 (no UV)</option><option value="10">Preset 10 (no UV)</option>
+                <option value="11">Preset 11 (no UV)</option><option value="12">Preset 12 (no UV)</option>
+              </select>
+              <button class="mini-button" id="send-preset" disabled>Send preset</button>
+            </div>
+          </div>
+        </div>
+        <div class="test-groups secondary-tests">
+          <div class="test-group">
+            <h3>Fan probe</h3>
+            <p>The <code>FC XX</code> frame is only a candidate; the value range and meaning are unknown. Send one value at a time and confirm each write.</p>
+            <div class="fan-row">
+              <label for="fan-value">Raw value (hex)</label>
+              <input id="fan-value" inputmode="text" maxlength="2" value="00" aria-describedby="fan-note">
+              <button class="mini-button" id="send-fan" disabled>Send fan probe</button>
+            </div>
+            <span class="test-note" id="fan-note">No automatic fan sweep is provided.</span>
+          </div>
+          <div class="test-group unavailable-test">
+            <h3>Master brightness</h3>
+            <p>Not available yet. We need to identify and verify a distinct master-brightness frame first.</p>
+          </div>
+        </div>
+        <p class="test-status" id="test-status" role="status" aria-live="polite">Connect to the lamp to enable tests.</p>
+      </section>
+      <footer class="footnote">
+        <span>Read-only until you explicitly write.</span>
+        <span>Bluetooth works from Android Chrome; serve this page over HTTPS.</span>
+      </footer>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

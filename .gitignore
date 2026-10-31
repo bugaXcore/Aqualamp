@@ -10,3 +10,8 @@ coverage/
 .vite/
 *.tsbuildinfo
 files/
+
+# hardware test output
+tools/hwtest/*.jpg
+tools/hwtest/*.png
+tools/hwtest/*.json
