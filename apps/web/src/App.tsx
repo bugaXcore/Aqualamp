@@ -30,8 +30,15 @@ import {
   saveUserPresets,
   type DayPreset,
   type PresetMode,
+  type RampKind,
   type SnapMode,
 } from "@/lib/presets";
+import {
+  applySolarRamp,
+  describeNextEvent,
+  moveRampEdge,
+  type SolarApplyInput,
+} from "@/lib/ramps";
 
 function nowMinutes(): number {
   const d = new Date();
@@ -395,6 +402,26 @@ export default function App() {
     setPlayheadMinutes(snapped);
   };
 
+  const handleApplySolarRamp = (input: SolarApplyInput) => {
+    if (isLive || compositionLocked || !selectedPreset) return;
+    if (selectedPreset.mode !== "schedule") return;
+    const next = applySolarRamp(selectedPreset, input);
+    patchPreset(selectedPreset.id, () => next);
+    setSelectedKeyframeId(null);
+    setPlayheadMinutes(clampMinutes(input.startMins, selectedPreset.snap));
+    pushToBridge(interpolateAt(next, input.startMins));
+  };
+
+  const handleMoveRampEdge = (
+    kind: RampKind,
+    edge: "start" | "end",
+    minutes: number,
+  ) => {
+    if (isLive || compositionLocked || !selectedPreset) return;
+    patchPreset(selectedPreset.id, (p) => moveRampEdge(p, kind, edge, minutes));
+    setPlayheadMinutes(clampMinutes(minutes, selectedPreset.snap));
+  };
+
   const slidersLocked = isLive || compositionLocked;
 
   const sliderHint = (() => {
@@ -446,6 +473,13 @@ export default function App() {
   const washStrength = connected
     ? (0.1 + mixLuma(local) * 0.16).toFixed(3)
     : "0";
+  const nextChip =
+    selectedPreset && selectedPreset.mode === "schedule"
+      ? describeNextEvent(
+          selectedPreset,
+          isLive ? playheadMinutes : nowMinutes(),
+        )
+      : null;
 
   return (
     <div
@@ -472,6 +506,11 @@ export default function App() {
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {connected && nextChip ? (
+            <span className="hidden max-w-[14rem] truncate rounded-full border border-teal-300/20 bg-teal-950/40 px-2 py-0.5 font-mono text-[10px] tracking-wide text-teal-100/75 sm:inline-block">
+              {nextChip}
+            </span>
+          ) : null}
           <StatusChip state={bridge.state} mock={bridge.mock} />
           {connected ? (
             <Button
@@ -605,6 +644,8 @@ export default function App() {
                 onAddKeyframe={handleAddKeyframe}
                 onDeleteKeyframe={handleDeleteKeyframe}
                 onKeyframeChannelChange={handleKeyframeChannelChange}
+                onApplySolarRamp={handleApplySolarRamp}
+                onMoveRampEdge={handleMoveRampEdge}
                 onDescriptionChange={(description) => {
                   if (!selectedPresetId) return;
                   patchPreset(selectedPresetId, (p) => ({

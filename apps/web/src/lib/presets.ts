@@ -4,6 +4,9 @@ export type PresetMode = "constant" | "schedule";
 export type SnapMode = "free" | "hour";
 export type Interpolation = "linear";
 
+export type RampKind = "sunrise" | "sunset";
+export type RampRole = "start" | "end";
+
 export type Keyframe = {
   id: string;
   /** Minutes from midnight, 0–1439 */
@@ -11,6 +14,9 @@ export type Keyframe = {
   channels: Channels;
   /** Optional display label (e.g. "Sunrise") */
   label?: string;
+  /** Linked solar ramp membership (compose assist A/B). */
+  ramp?: RampKind;
+  rampRole?: RampRole;
 };
 
 export type DayPreset = {
@@ -222,6 +228,8 @@ export function duplicateAsUserPreset(source: DayPreset): DayPreset {
       minutes: k.minutes,
       channels: { ...k.channels },
       label: k.label,
+      ramp: k.ramp,
+      rampRole: k.rampRole,
     })),
     snap: source.snap,
     interpolation: "linear",
@@ -385,15 +393,25 @@ function normalizeUserPreset(p: Partial<DayPreset>): DayPreset {
     mode: p.mode === "schedule" ? "schedule" : "constant",
     constantChannels: normalizeChannels(p.constantChannels),
     keyframes: Array.isArray(p.keyframes)
-      ? p.keyframes.map((k) => ({
-          id: k.id ?? newId(),
-          minutes: clampMinutes(k.minutes ?? 0, "free"),
-          channels: normalizeChannels(k.channels),
-          label:
-            typeof k.label === "string" && k.label.trim()
-              ? k.label.trim()
-              : undefined,
-        }))
+      ? p.keyframes.map((k) => {
+          const ramp =
+            k.ramp === "sunrise" || k.ramp === "sunset" ? k.ramp : undefined;
+          const rampRole =
+            k.rampRole === "start" || k.rampRole === "end"
+              ? k.rampRole
+              : undefined;
+          return {
+            id: k.id ?? newId(),
+            minutes: clampMinutes(k.minutes ?? 0, "free"),
+            channels: normalizeChannels(k.channels),
+            label:
+              typeof k.label === "string" && k.label.trim()
+                ? k.label.trim()
+                : undefined,
+            ramp,
+            rampRole: ramp ? rampRole : undefined,
+          };
+        })
       : [],
     snap: p.snap === "hour" ? "hour" : "free",
     interpolation: "linear",

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { Activity, Plus, Sliders, Trash2 } from "lucide-react";
+import { Activity, Link2, Plus, Sliders, Trash2 } from "lucide-react";
 import { ChannelSlider } from "@/components/ChannelSlider";
+import { SolarAssistStrip } from "@/components/SolarAssistStrip";
 import type { Channels } from "@/lib/bridge";
 import {
   clampMinutes,
@@ -9,7 +10,9 @@ import {
   timeToMins,
   type DayPreset,
   type Keyframe,
+  type RampKind,
 } from "@/lib/presets";
+import { listLinkedRamps, type SolarApplyInput } from "@/lib/ramps";
 import { cn } from "@/lib/utils";
 
 export type TimelineWorkspaceMode = "edit" | "live";
@@ -51,6 +54,12 @@ type Props = {
   onAddKeyframe: (minutes: number, channels: Channels) => void;
   onDeleteKeyframe: (id: string) => void;
   onKeyframeChannelChange: (id: string, key: keyof Channels, value: number) => void;
+  onApplySolarRamp?: (input: SolarApplyInput) => void;
+  onMoveRampEdge?: (
+    kind: RampKind,
+    edge: "start" | "end",
+    minutes: number,
+  ) => void;
   onDescriptionChange?: (description: string) => void;
 };
 
@@ -147,11 +156,17 @@ export function DayTimeline({
   onAddKeyframe,
   onDeleteKeyframe,
   onKeyframeChannelChange,
+  onApplySolarRamp,
+  onMoveRampEdge,
   onDescriptionChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draggingPlayhead, setDraggingPlayhead] = useState(false);
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const [draggingRamp, setDraggingRamp] = useState<{
+    kind: RampKind;
+    edge: "start" | "end";
+  } | null>(null);
   const [timeDraft, setTimeDraft] = useState<string | null>(null);
 
   const isEdit = workspaceMode === "edit";
@@ -196,6 +211,10 @@ export function DayTimeline({
   }, [preset, schedule, selectedKeyframeId, sorted, snappedPlayhead]);
 
   const showHud = showCtiChrome && Boolean(activeKeyframe);
+  const linkedRamps = useMemo(
+    () => (preset && schedule ? listLinkedRamps(preset) : []),
+    [preset, schedule],
+  );
 
   const paths = preset
     ? {
@@ -335,6 +354,14 @@ export function DayTimeline({
             }}
             onPointerMove={(e) => {
               if (!preset || !isEdit) return;
+              if (draggingRamp && canCompose && onMoveRampEdge) {
+                onMoveRampEdge(
+                  draggingRamp.kind,
+                  draggingRamp.edge,
+                  minsFromEvent(e.clientX, true),
+                );
+                return;
+              }
               if (draggingNode && canCompose) {
                 onMoveKeyframe(draggingNode, minsFromEvent(e.clientX, true));
                 return;
@@ -345,6 +372,7 @@ export function DayTimeline({
             onPointerUp={(e) => {
               setDraggingPlayhead(false);
               setDraggingNode(null);
+              setDraggingRamp(null);
               try {
                 e.currentTarget.releasePointerCapture(e.pointerId);
               } catch {
@@ -422,6 +450,51 @@ export function DayTimeline({
               stroke="rgba(148, 210, 220, 0.18)"
               strokeWidth={1.25}
             />
+
+            {/* A — dawn/dusk ramp bands */}
+            {canCompose &&
+              linkedRamps.map((ramp) => {
+                const x1 = (ramp.start.minutes / 1440) * W;
+                const x2 = (ramp.end.minutes / 1440) * W;
+                const fill =
+                  ramp.kind === "sunrise"
+                    ? "rgba(251, 191, 36, 0.12)"
+                    : "rgba(129, 140, 248, 0.12)";
+                const stroke =
+                  ramp.kind === "sunrise"
+                    ? "rgba(251, 191, 36, 0.45)"
+                    : "rgba(129, 140, 248, 0.45)";
+                return (
+                  <g key={`band-${ramp.kind}`} pointerEvents="none">
+                    <rect
+                      x={x1}
+                      y={PAD_TOP}
+                      width={Math.max(2, x2 - x1)}
+                      height={YSPAN}
+                      fill={fill}
+                      stroke={stroke}
+                      strokeWidth={1}
+                      strokeDasharray="3 4"
+                      rx={3}
+                    />
+                    <text
+                      x={(x1 + x2) / 2}
+                      y={PAD_TOP + 11}
+                      textAnchor="middle"
+                      fill={
+                        ramp.kind === "sunrise"
+                          ? "rgba(253, 230, 138, 0.85)"
+                          : "rgba(199, 210, 254, 0.85)"
+                      }
+                      fontSize={8}
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight={700}
+                    >
+                      {ramp.kind === "sunrise" ? "DAWN" : "DUSK"} · linked
+                    </text>
+                  </g>
+                );
+              })}
 
             {paths && (
               <g className="timeline-curves" opacity={isLive ? 0.92 : 1}>
@@ -635,7 +708,7 @@ export function DayTimeline({
             </g>
           </svg>
 
-          <div className="flex justify-between px-3 pb-2.5 font-mono text-[10px] text-teal-100/40">
+          <div className="flex justify-between px-3 pb-1 font-mono text-[10px] text-teal-100/40">
             <span>00:00</span>
             <span>04:00</span>
             <span>08:00</span>
@@ -645,6 +718,52 @@ export function DayTimeline({
             <span>24:00</span>
           </div>
         </div>
+
+        {/* A — drag handles on ramp edges (over timeline) */}
+        {canCompose &&
+          onMoveRampEdge &&
+          linkedRamps.map((ramp) => {
+            const startPct = (ramp.start.minutes / 1440) * 100;
+            const endPct = (ramp.end.minutes / 1440) * 100;
+            const tone =
+              ramp.kind === "sunrise"
+                ? "border-amber-300/50 bg-amber-200/90"
+                : "border-indigo-300/50 bg-indigo-200/90";
+            return (
+              <div key={`handles-${ramp.kind}`}>
+                {(["start", "end"] as const).map((edge) => (
+                  <button
+                    key={edge}
+                    type="button"
+                    title={`${ramp.kind} ${edge}`}
+                    aria-label={`${ramp.kind} ramp ${edge}`}
+                    className={cn(
+                      "absolute top-[38%] z-20 h-9 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border shadow-[0_0_0_1px_rgba(6,16,24,0.55)]",
+                      tone,
+                    )}
+                    style={{
+                      left: `${edge === "start" ? startPct : endPct}%`,
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setDraggingRamp({ kind: ramp.kind, edge });
+                      svgRef.current?.setPointerCapture(e.pointerId);
+                    }}
+                  />
+                ))}
+                <div
+                  className="pointer-events-none absolute top-2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-teal-200/15 bg-depth-950/80 px-1.5 py-0.5"
+                  style={{ left: `${(startPct + endPct) / 2}%` }}
+                >
+                  <Link2 className="h-2.5 w-2.5 text-teal-200/60" />
+                  <span className="font-mono text-[8px] tracking-wide text-teal-100/55 uppercase">
+                    linked
+                  </span>
+                </div>
+              </div>
+            );
+          })}
 
         {showCtiChrome && (
           <div
@@ -739,6 +858,10 @@ export function DayTimeline({
           </div>
         )}
         </div>
+
+        {showCtiChrome && onApplySolarRamp && preset && (
+          <SolarAssistStrip preset={preset} onApply={onApplySolarRamp} />
+        )}
       </div>
 
       {showDescriptionBlock && (
