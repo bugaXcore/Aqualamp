@@ -18,7 +18,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@aqualamp/core": ["../../packages/controller/src/core.ts"]
     }
   },
   "include": ["src"]

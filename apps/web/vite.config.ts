@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(rootDir, "./src"),
+      "@aqualamp/core": path.resolve(rootDir, "../../packages/controller/src/core.ts"),
     },
   },
   server: {

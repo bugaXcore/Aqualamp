@@ -11,6 +11,7 @@ import { PresetsPanel } from "@/components/PresetsPanel";
 import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import { useBridge } from "@/hooks/useBridge";
+import { useLamp } from "@/hooks/useLamp";
 import { channelsToCss, mixLuma, type Channels } from "@/lib/bridge";
 import {
   BUILTIN_PRESETS,
@@ -56,8 +57,12 @@ const CHANNEL_META: {
   { key: "uv", label: "UV", accent: "#c084fc" },
 ];
 
+// Fixed for the page load: `?transport=ble` talks to the lamp directly over Web Bluetooth.
+const useTransport =
+  new URLSearchParams(window.location.search).get("transport") === "ble" ? useLamp : useBridge;
+
 export default function App() {
-  const bridge = useBridge();
+  const bridge = useTransport();
   const [local, setLocal] = useState<Channels>({ ...FREE_MANUAL_CHANNELS });
   /** Committed user presets (localStorage). */
   const [savedUserPresets, setSavedUserPresets] = useState<DayPreset[]>([]);
