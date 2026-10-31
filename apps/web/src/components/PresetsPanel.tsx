@@ -165,11 +165,7 @@ export function PresetsPanel({
                         >
                           {preset.name}
                         </div>
-                        {freeManual ? (
-                          <span className="shrink-0 rounded-full border border-teal-300/25 bg-teal-950/45 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/85 uppercase">
-                            Free
-                          </span>
-                        ) : !builtin ? (
+                        {!builtin ? (
                           <span className="shrink-0 font-mono text-[9px] tracking-wide text-teal-100/45 uppercase">
                             {preset.mode}
                           </span>
