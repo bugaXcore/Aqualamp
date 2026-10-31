@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { ChannelSlider } from "@/components/ChannelSlider";
 import {
   DayTimeline,
@@ -8,7 +14,7 @@ import { PresetsPanel } from "@/components/PresetsPanel";
 import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import { useBridge } from "@/hooks/useBridge";
-import { channelsToCss, type Channels } from "@/lib/bridge";
+import { channelsToCss, mixLuma, type Channels } from "@/lib/bridge";
 import {
   BUILTIN_PRESETS,
   clampMinutes,
@@ -399,12 +405,27 @@ export default function App() {
   };
 
   const mix = channelsToCss(local);
+  /** Soft wash — tracks brightness; stay under ~0.28 so UI stays readable. */
+  const washStrength = connected
+    ? (0.1 + mixLuma(local) * 0.16).toFixed(3)
+    : "0";
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      style={
+        connected
+          ? ({
+              ["--mix" as string]: mix,
+              ["--mix-strength" as string]: washStrength,
+            } as CSSProperties)
+          : undefined
+      }
+    >
       <div className="app-bg" aria-hidden>
         <div className="caustics" />
         <div className="depth-glow" />
+        {connected ? <div className="mix-wash" /> : null}
       </div>
 
       <header className="relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
@@ -426,6 +447,10 @@ export default function App() {
           ) : null}
         </div>
       </header>
+
+      {connected ? (
+        <div className="mix-ribbon" aria-hidden title="Live mix" />
+      ) : null}
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col px-5 pb-10 sm:px-8">
         {!connected ? (
@@ -462,21 +487,9 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <section className="controls-enter flex flex-1 flex-col gap-6 overflow-visible pt-2">
+          <section className="controls-enter flex flex-1 flex-col gap-6 overflow-visible pt-4">
             <div
-              className="tank-preview"
-              style={{
-                ["--mix" as string]: mix,
-              }}
-            >
-              <div className="tank-glow" />
-              <span className="relative z-10 font-[Figtree] text-xs font-medium tracking-[0.2em] text-white/70 uppercase">
-                Live mix
-              </span>
-            </div>
-
-            <div
-              className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 ${slidersLocked ? "pointer-events-none" : ""}`}
+              className={`channel-strip grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 ${slidersLocked ? "pointer-events-none" : ""}`}
             >
               {CHANNEL_META.map((ch) => (
                 <ChannelSlider

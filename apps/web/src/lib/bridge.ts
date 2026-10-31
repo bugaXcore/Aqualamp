@@ -67,13 +67,25 @@ export function normalizeBridgeChannels(
 
 /** Live-mix preview: RGB plus a violet UV contribution. */
 export function channelsToCss(channels: Channels): string {
+  const { r, g, b } = mixRgb(channels);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** 0–1 perceived mix brightness for wash intensity. */
+export function mixLuma(channels: Channels): number {
+  const { r, g, b } = mixRgb(channels);
+  return Math.min(1, (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255);
+}
+
+function mixRgb(channels: Channels): { r: number; g: number; b: number } {
   const r = Math.round((channels.red / 100) * 255);
   const g = Math.round((channels.green / 100) * 255);
   const b = Math.round((channels.blue / 100) * 255);
   const u = channels.uv / 100;
-  // UV leans violet/purple in the tank preview (not white).
-  const wr = Math.round(r * (1 - u * 0.35) + 168 * u);
-  const wg = Math.round(g * (1 - u * 0.35) + 85 * u);
-  const wb = Math.round(b * (1 - u * 0.25) + 247 * u);
-  return `rgb(${wr}, ${wg}, ${wb})`;
+  // UV leans violet/purple (not white).
+  return {
+    r: Math.round(r * (1 - u * 0.35) + 168 * u),
+    g: Math.round(g * (1 - u * 0.35) + 85 * u),
+    b: Math.round(b * (1 - u * 0.25) + 247 * u),
+  };
 }
