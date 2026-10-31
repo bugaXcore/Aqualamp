@@ -346,6 +346,43 @@ export default function App() {
     setLocal({ ...channels });
   };
 
+  const handleDeleteKeyframe = (id: string) => {
+    if (isLive || compositionLocked || !selectedPreset) return;
+    if (selectedPreset.mode !== "schedule") return;
+    const nextKeyframes = selectedPreset.keyframes.filter((k) => k.id !== id);
+    patchPreset(selectedPreset.id, (p) => ({
+      ...p,
+      keyframes: nextKeyframes,
+    }));
+    if (selectedKeyframeId === id) setSelectedKeyframeId(null);
+    pushToBridge(
+      interpolateAt(
+        { ...selectedPreset, keyframes: nextKeyframes },
+        playheadMinutes,
+      ),
+    );
+  };
+
+  const handleKeyframeChannelChange = (
+    id: string,
+    key: keyof Channels,
+    value: number,
+  ) => {
+    if (isLive || compositionLocked || !selectedPreset) return;
+    const kf = selectedPreset.keyframes.find((k) => k.id === id);
+    if (!kf) return;
+    const nextChannels = { ...kf.channels, [key]: value };
+    patchPreset(selectedPreset.id, (p) => ({
+      ...p,
+      keyframes: p.keyframes.map((k) =>
+        k.id === id ? { ...k, channels: nextChannels } : k,
+      ),
+    }));
+    setSelectedKeyframeId(id);
+    setPlayheadMinutes(kf.minutes);
+    pushToBridge(nextChannels);
+  };
+
   const handleMoveKeyframe = (id: string, minutes: number) => {
     if (isLive || compositionLocked || !selectedPreset) return;
     const snapped = clampMinutes(minutes, selectedPreset.snap);
@@ -566,6 +603,8 @@ export default function App() {
                 }}
                 onMoveKeyframe={handleMoveKeyframe}
                 onAddKeyframe={handleAddKeyframe}
+                onDeleteKeyframe={handleDeleteKeyframe}
+                onKeyframeChannelChange={handleKeyframeChannelChange}
                 onDescriptionChange={(description) => {
                   if (!selectedPresetId) return;
                   patchPreset(selectedPresetId, (p) => ({
@@ -575,41 +614,6 @@ export default function App() {
                 }}
               />
             </div>
-
-            {!isLive &&
-              !compositionLocked &&
-              selectedPreset?.mode === "schedule" &&
-              selectedKeyframeId && (
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      patchPreset(selectedPreset.id, (p) => ({
-                        ...p,
-                        keyframes: p.keyframes.filter(
-                          (k) => k.id !== selectedKeyframeId,
-                        ),
-                      }));
-                      setSelectedKeyframeId(null);
-                      pushToBridge(
-                        interpolateAt(
-                          {
-                            ...selectedPreset,
-                            keyframes: selectedPreset.keyframes.filter(
-                              (k) => k.id !== selectedKeyframeId,
-                            ),
-                          },
-                          playheadMinutes,
-                        ),
-                      );
-                    }}
-                  >
-                    Delete keyframe
-                  </Button>
-                </div>
-              )}
 
             {bridge.error && (
               <p className="text-center text-sm text-rose-200/90">

@@ -6,6 +6,8 @@ type Props = {
   value: number;
   accent: string;
   disabled?: boolean;
+  /** Denser layout for CTI HUD. */
+  compact?: boolean;
   onChange: (value: number) => void;
 };
 
@@ -19,6 +21,7 @@ export function ChannelSlider({
   value,
   accent,
   disabled,
+  compact,
   onChange,
 }: Props) {
   const id = useId();
@@ -27,7 +30,8 @@ export function ChannelSlider({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-1.5",
+        "flex min-w-0 flex-col",
+        compact ? "gap-1" : "gap-1.5",
         disabled && "pointer-events-none opacity-45",
       )}
     >
@@ -35,12 +39,18 @@ export function ChannelSlider({
         <label
           id={id}
           htmlFor={`${id}-range`}
-          className="font-[Syne] text-sm font-semibold tracking-wide text-teal-50/90"
+          className={cn(
+            "font-[Syne] font-semibold tracking-wide text-teal-50/90",
+            compact ? "text-[11px]" : "text-sm",
+          )}
         >
           {label}
         </label>
         <span
-          className="font-mono text-sm font-semibold tabular-nums tracking-tight text-white/90"
+          className={cn(
+            "font-mono font-semibold tabular-nums tracking-tight text-white/90",
+            compact ? "text-[11px]" : "text-sm",
+          )}
           aria-hidden
         >
           {pct}%
