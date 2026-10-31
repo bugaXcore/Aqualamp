@@ -6,6 +6,7 @@ import type { Channels } from "@/lib/bridge";
 import {
   clampMinutes,
   interpolateAt,
+  isFreeManualPreset,
   minsToTime,
   timeToMins,
   type DayPreset,
@@ -257,16 +258,18 @@ export function DayTimeline({
     ctiPct < 28 ? "left" : ctiPct > 72 ? "right" : "center";
 
   const hint = !preset
-    ? "Select a preset · Duplicate or New to compose."
-    : isPlayback
-      ? compositionLocked
-        ? "Playing · read-only builtin · Duplicate to compose"
-        : "Playing · clock CTI · New / Duplicate / Edit to compose"
-      : compositionLocked
-        ? "Built-in read-only · Duplicate to compose"
-        : preset.mode === "constant"
-          ? "Composing · constant levels · Save to keep"
-          : "Composing · CTI + / trash · HUD edits the key · Save to keep";
+    ? "Select Free mix for live sliders · Duplicate or New to compose."
+    : isFreeManualPreset(preset)
+      ? "Free mix · top R/G/B/UV drive the lamp · day presets for schedules"
+      : isPlayback
+        ? compositionLocked
+          ? "Playing · read-only builtin · Duplicate to compose"
+          : "Playing · clock CTI · New / Duplicate / Edit to compose"
+        : compositionLocked
+          ? "Built-in read-only · Duplicate to compose"
+          : preset.mode === "constant"
+            ? "Composing · constant levels · Save to keep"
+            : "Composing · CTI + / trash · HUD edits the key · Save to keep";
 
   const description = preset?.description?.trim() ?? "";
   const showDescriptionBlock =

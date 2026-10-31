@@ -18,8 +18,11 @@ import {
   clonePreset,
   createEmptyPreset,
   duplicateAsUserPreset,
+  FREE_MANUAL_CHANNELS,
+  FREE_MANUAL_PRESET_ID,
   interpolateAt,
   isBuiltinPreset,
+  isFreeManualPreset,
   loadUserPresets,
   minsToTime,
   newId,
@@ -55,12 +58,15 @@ const CHANNEL_META: {
 
 export default function App() {
   const bridge = useBridge();
-  const [local, setLocal] = useState<Channels>(bridge.channels);
+  const [local, setLocal] = useState<Channels>({ ...FREE_MANUAL_CHANNELS });
   /** Committed user presets (localStorage). */
   const [savedUserPresets, setSavedUserPresets] = useState<DayPreset[]>([]);
   /** Draft overlays + never-saved new presets. */
   const [drafts, setDrafts] = useState<Record<string, DayPreset>>({});
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  /** Default = free mix so top sliders never open dead. */
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
+    FREE_MANUAL_PRESET_ID,
+  );
   const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(
     null,
   );
@@ -101,10 +107,14 @@ export default function App() {
 
   const selectedPreset =
     displayPresets.find((p) => p.id === selectedPresetId) ?? null;
+  const isFreeManual = Boolean(
+    selectedPreset && isFreeManualPreset(selectedPreset),
+  );
   const selectedBuiltin = selectedPreset
     ? isBuiltinPreset(selectedPreset)
     : false;
-  const compositionLocked = selectedBuiltin;
+  /** Built-in day looks are read-only; free mix is not locked. */
+  const compositionLocked = selectedBuiltin && !isFreeManual;
 
   const selectedIsCommitted = Boolean(
     selectedPresetId &&
@@ -128,9 +138,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (isFreeManual) return;
     if (isPlayback) return;
     setLocal(bridge.channels);
-  }, [bridge.channels, isPlayback]);
+  }, [bridge.channels, isPlayback, isFreeManual]);
 
   useEffect(() => {
     if (!isPlayback) return;
@@ -145,6 +156,8 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedPreset) return;
+    /** Free mix is user-driven — never overwrite local from playhead ticks. */
+    if (isFreeManualPreset(selectedPreset)) return;
     if (isPlayback) {
       const channels = interpolateAt(selectedPreset, playheadMinutes);
       setLocal(channels);
@@ -171,6 +184,13 @@ export default function App() {
     compositionLocked,
   ]);
 
+  /** Push free-mix starter once connected so mock lamp matches open state. */
+  useEffect(() => {
+    if (!connected || !isFreeManual) return;
+    setChannelsRef.current(local);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on connect+free
+  }, [connected, isFreeManual]);
+
   const pushToBridge = (channels: Channels) => {
     setLocal(channels);
     bridge.setChannels(channels);
@@ -189,6 +209,10 @@ export default function App() {
   };
 
   const updateChannel = (key: keyof Channels, value: number) => {
+    if (isFreeManual) {
+      pushToBridge({ ...local, [key]: value });
+      return;
+    }
     if (isPlayback || compositionLocked) return;
     if (!selectedPreset) {
       pushToBridge({ ...local, [key]: value });
@@ -457,12 +481,17 @@ export default function App() {
     setPlayheadMinutes(clampMinutes(minutes, selectedPreset.snap));
   };
 
-  const slidersLocked = isPlayback || compositionLocked;
+  const slidersLocked = isFreeManual
+    ? false
+    : isPlayback || compositionLocked;
 
   const sliderHint = (() => {
+    if (isFreeManual) {
+      return "Free mix — drag R/G/B/UV anytime · day presets below for schedules.";
+    }
     if (isPlayback) {
       if (!selectedPreset) {
-        return "Playing — sliders locked · New / Duplicate to compose.";
+        return "Playing — sliders locked · Free mix or New / Duplicate to compose.";
       }
       return selectedPreset.mode === "constant"
         ? "Playing — constant levels · read-only telemetry."

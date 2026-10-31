@@ -78,11 +78,28 @@ function kf(
   };
 }
 
+/** First list item — live manual mix; top sliders always editable. */
+export const FREE_MANUAL_PRESET_ID = "builtin-free-manual";
+
+export const FREE_MANUAL_CHANNELS: Channels = ch(42, 48, 55, 18);
+
 /**
  * Hardcoded built-in library — source of truth in code, never editable,
- * never stored in localStorage.
+ * never stored in localStorage. Free/manual is always first.
  */
 export const BUILTIN_PRESETS: DayPreset[] = [
+  {
+    id: FREE_MANUAL_PRESET_ID,
+    name: "Free mix",
+    description:
+      "Manual R/G/B/UV — drag the top sliders anytime. Day presets below drive schedules and locked looks; Duplicate any of them to compose your own curve.",
+    mode: "constant",
+    constantChannels: { ...FREE_MANUAL_CHANNELS },
+    keyframes: [],
+    snap: "free",
+    interpolation: "linear",
+    builtin: true,
+  },
   {
     id: "builtin-bioactive-24-7",
     name: "The Bioactive 24/7 Cycle (The Daily Driver)",
@@ -167,6 +184,12 @@ export function isBuiltinPreset(preset: DayPreset | string): boolean {
   }
   if (preset.builtin) return true;
   return BUILTIN_IDS.has(preset.id);
+}
+
+/** Free / manual mix — first preset; top sliders stay live. */
+export function isFreeManualPreset(preset: DayPreset | string): boolean {
+  const id = typeof preset === "string" ? preset : preset.id;
+  return id === FREE_MANUAL_PRESET_ID;
 }
 
 export function minsToTime(mins: number): string {

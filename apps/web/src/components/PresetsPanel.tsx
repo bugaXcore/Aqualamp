@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Copy, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   isBuiltinPreset,
+  isFreeManualPreset,
   presetMixBackground,
   type DayPreset,
   type PresetMode,
@@ -94,7 +95,9 @@ export function PresetsPanel({
       <ul className="mt-3 flex max-h-[28rem] flex-col gap-1 overflow-y-auto pr-1">
         {presets.map((preset) => {
           const active = preset.id === selectedId;
+          const freeManual = isFreeManualPreset(preset);
           const builtin = isBuiltinPreset(preset);
+          const lockedBuiltin = builtin && !freeManual;
           const rowDirty = dirtyIds?.has(preset.id) ?? false;
           const showUserChrome =
             composing && active && !builtin && renamingId !== preset.id;
@@ -146,7 +149,7 @@ export function PresetsPanel({
                       </form>
                     ) : (
                       <div className="flex min-w-0 flex-[0_1_70%] items-center gap-1.5">
-                        {builtin && (
+                        {lockedBuiltin && (
                           <Lock
                             className="h-3 w-3 shrink-0 text-teal-200/55"
                             aria-label="Built-in"
@@ -162,11 +165,15 @@ export function PresetsPanel({
                         >
                           {preset.name}
                         </div>
-                        {!builtin && (
+                        {freeManual ? (
+                          <span className="shrink-0 rounded-full border border-teal-300/25 bg-teal-950/45 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/85 uppercase">
+                            Free
+                          </span>
+                        ) : !builtin ? (
                           <span className="shrink-0 font-mono text-[9px] tracking-wide text-teal-100/45 uppercase">
                             {preset.mode}
                           </span>
-                        )}
+                        ) : null}
                         {rowDirty && (
                           <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-950/40 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-amber-200/80 uppercase">
                             Unsaved
