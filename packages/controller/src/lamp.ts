@@ -183,8 +183,9 @@ export class Lamp {
   private sendSequence(frames: Frame[]): Promise<void> {
     const run = this.chain.then(async () => {
       for (let i = 0; i < frames.length; i += 1) {
-        if (i > 0 && this.frameGapMs > 0) await new Promise((r) => setTimeout(r, this.frameGapMs));
         await this.write(frames[i]);
+        // The lamp drops a colour that arrives right after a setup frame, so pause after the last one too.
+        if (this.frameGapMs > 0) await new Promise((r) => setTimeout(r, this.frameGapMs));
       }
     });
     this.chain = run.catch(() => {});

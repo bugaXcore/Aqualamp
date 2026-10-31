@@ -159,3 +159,23 @@ Conclusion: the delay and the green-before-off are the lamp's own color easing, 
 ### Rapid color switching (PC + webcam)
 
 Alternating pure red (`FB F9 EB 00 00 00`) and pure blue (`FB F9 00 00 EB 00`) for 8 s per step: at write intervals of 2 s, 1 s, 0.5 s, 0.25 s, 0.1 s, 0.05 s and 0.02 s, the lamp stayed red. Blue only rose to about 18 (against about 120 at full) at the 2 s and 50 ms steps. The lamp accepts the writes (up to 50 per second, none rejected) but its color easing takes about 15 s, so there is no visible flicker or party effect. The 50 ms step's larger swing was not explained. Fast strobing is not possible with the lamp's own color frames.
+
+### FC byte is not a dimmer (PC + webcam)
+
+With preset 3 lit, `FC 00`, `FC 3B`, `FC 76` and `FC EB` (0, 25, 50, 100%) left the wall brightness unchanged (sum 281.6, 279.9, 279.4, 279.0, drift under 1%). So `FC XX` is not a global intensity control, as the AquaLamp mockup assumed. The official app's code calls it the fan (`getFanString`, percent x 2.35), so treat it as a fan speed. The lamp had no audible or visible reaction in this test.
+
+### Brightness calibration check (PC + webcam)
+
+The lamp's brightness curve is compressive. Sending the raw 25/50/75% levels gave output of about 33/65/85% of full for red. After correcting with the measured per-channel curves (`MEASURED_CURVES` in `packages/controller/src/calibration.ts`), the measured output was within 1.6 points of the target:
+
+| Channel | 25% | 50% | 75% |
+|---|---|---|---|
+| Red | 25.6 | 51.6 | 75.3 |
+| Green | 25.3 | 50.0 | 75.9 |
+| Blue | 25.1 | 50.4 | 75.5 |
+
+UV is not calibrated (the camera cannot see it). Reproduce with `tools/hwtest/calibration_check.py`.
+
+### Timing after setup frames (Node sidecar + webcam)
+
+A colour frame sent right after the always-on window frame (`FE F9 00 00 24 00 00 00`) was silently dropped: red 40 never lit, while a later blue frame did. Leaving 500 ms after every setup frame, including the last, fixed it. `Lamp` now waits `frameGapMs` (default 500) after each frame of a command. Verified through the bleak sidecar: red lit, eased to blue, then power off (clock, `FD F1`, window, then colour).
