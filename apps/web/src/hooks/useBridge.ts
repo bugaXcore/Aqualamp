@@ -109,7 +109,9 @@ export function useBridge(url = defaultBridgeUrl()) {
     mock,
     error,
     bridgeError,
-    connect: () => send({ type: "connect" }),
+    connect: (opts?: { remember?: boolean }) =>
+      send({ type: "connect", remember: opts?.remember ?? false }),
+    forgetDevice: () => send({ type: "forget" }),
     disconnect: () => send({ type: "disconnect" }),
     setChannels: (partial: Partial<Channels>) =>
       send({ type: "setChannels", channels: partial }),

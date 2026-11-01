@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaLamp – header & settings menu options</title>
+<style>
+  :root {
+    --d950:#061018; --d900:#0a1628; --d800:#0d2137;
+    --aqua:#5eead4; --aqua2:#2dd4bf; --ink:#e8f7f8; --mut:rgba(204,251,241,.6);
+    --line:rgba(94,234,212,.18); --glass:rgba(8,24,38,.78); --rose:#fda4af;
+    --ease:cubic-bezier(.22,.8,.24,1);
+  }
+  *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:rgba(94,234,212,.3) transparent}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(94,234,212,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+  body{margin:0;background:var(--d950);color:var(--ink);font:15px/1.5 "Figtree",system-ui,sans-serif}
+  .page{max-width:1180px;margin:0 auto;padding:40px 24px 80px}
+  h1{font:700 28px/1.2 "Syne","Figtree",sans-serif;margin:0 0 8px}
+  h2{font:600 18px/1.3 "Syne","Figtree",sans-serif;margin:0}
+  p{margin:0}
+  .lead{color:var(--mut);max-width:62ch}
+  .rules{margin:28px 0 8px;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:rgba(13,33,55,.5)}
+  .rules ul{margin:10px 0 0;padding-left:18px;color:var(--mut);columns:2;column-gap:32px}
+  .rules li{margin-bottom:6px;break-inside:avoid}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:36px 28px;margin-top:32px}
+  .opt header{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+  .opt .tag{font:600 12px "Figtree",system-ui,sans-serif;color:var(--d950);background:var(--aqua);border-radius:999px;padding:1px 9px}
+  .opt .note{color:var(--mut);font-size:13.5px;margin-bottom:12px;min-height:3em}
+  .opt .note b{color:var(--ink);font-weight:600}
+
+  /* ---------- stage (fake app) ---------- */
+  .stage{position:relative;height:500px;overflow:hidden;border-radius:18px;border:1px solid var(--line);
+    background:radial-gradient(120% 80% at 50% -10%,rgba(45,212,191,.18),transparent 55%),
+    linear-gradient(180deg,var(--d800),var(--d900) 45%,var(--d950))}
+  .stage.phone{width:340px;margin:0 auto}
+  .appbody{padding:0 18px;display:grid;gap:14px}
+  .sk{height:54px;border-radius:12px;background:rgba(94,234,212,.07);border:1px solid rgba(94,234,212,.1)}
+  .sk.tall{height:110px}
+  .sk.s{height:34px;width:60%}
+
+  /* ---------- header ---------- */
+  .hdr{display:flex;align-items:center;gap:8px;height:52px;padding:0 10px 0 16px}
+  .hdr .hint{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);font-size:13px}
+  .chip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(6,40,48,.5);font-size:12.5px;color:#ccfbf1;white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--aqua2);box-shadow:0 0 0 3px rgba(45,212,191,.2)}
+  .ib{width:40px;height:40px;display:inline-grid;place-items:center;border-radius:12px;border:1px solid transparent;
+    background:transparent;color:#ccfbf1;cursor:pointer;position:relative;transition:background .2s,border-color .2s,color .2s}
+  .ib:hover{background:rgba(94,234,212,.1);border-color:var(--line)}
+  .ib:focus-visible,.sw:focus-visible,.seg button:focus-visible,.row-btn:focus-visible{outline:2px solid var(--aqua);outline-offset:2px}
+  .ib.danger:hover{background:rgba(253,164,175,.12);border-color:rgba(253,164,175,.35);color:var(--rose)}
+  .ib[aria-expanded="true"]{background:rgba(94,234,212,.16);border-color:rgba(94,234,212,.4)}
+  .ib svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s var(--ease)}
+  .ib[aria-expanded="true"] .gear{transform:rotate(60deg)}
+  /* tooltip */
+  .ib::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:3px 8px;border-radius:7px;
+    background:#04202a;border:1px solid var(--line);font-size:12px;color:var(--ink);opacity:0;transform:translateY(-3px);
+    pointer-events:none;transition:.15s;z-index:60}
+  .ib:hover::after,.ib:focus-visible::after{opacity:1;transform:none}
+  .ib[aria-expanded="true"]::after{display:none}
+
+  /* ---------- menu content ---------- */
+  .menu{padding:6px 6px 8px;font-size:14px}
+  .menu h3{margin:12px 12px 4px;font:600 12.5px/1.3 "Figtree",system-ui,sans-serif;color:var(--mut)}
+  .menu h3:first-child{margin-top:6px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:10px}
+  .row:hover{background:rgba(94,234,212,.06)}
+  .row small{display:block;color:var(--mut);font-size:12px;line-height:1.3;margin-top:1px}
+  .sw{width:40px;height:24px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.08);position:relative;cursor:pointer;flex:none;padding:0}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#cfe;transition:transform .2s var(--ease)}
+  .sw[aria-checked="true"]{background:rgba(45,212,191,.55);border-color:rgba(94,234,212,.6)}
+  .sw[aria-checked="true"]::after{transform:translateX(16px);background:#fff}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:none}
+  .seg button{border:0;background:transparent;color:var(--mut);padding:4px 11px;font:inherit;font-size:13px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:rgba(94,234,212,.2);color:var(--ink)}
+  .row-btn{border:0;background:none;color:var(--ink);font:inherit;text-align:left;width:100%;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:10px}
+  .row-btn:hover{background:rgba(94,234,212,.06)}
+  .row-btn.warn{color:var(--rose)}
+  .ver{padding:8px 12px 2px;color:var(--mut);font-size:12px}
+
+  .layer{position:absolute;z-index:40}
+  .panel{background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:0 24px 60px -12px rgba(0,0,0,.6)}
+  .scrim{position:absolute;inset:0;background:rgba(2,10,16,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+  .open .scrim{opacity:1;pointer-events:auto}
+
+  /* A popover */
+  .A .layer{top:54px;right:10px;width:300px;max-height:calc(100% - 64px);overflow:auto;border-radius:16px;transform-origin:top right;
+    opacity:0;transform:scale(.94) translateY(-6px);pointer-events:none;transition:opacity .18s,transform .25s var(--ease)}
+  .A.open .layer{opacity:1;transform:none;pointer-events:auto}
+
+  /* B drawer */
+  .B .layer{top:0;bottom:0;right:0;width:320px;max-width:88%;border-radius:18px 0 0 18px;border-right:0;
+    transform:translateX(104%);transition:transform .35s var(--ease);visibility:hidden;display:flex;flex-direction:column}
+  .B.open .layer{transform:none;visibility:visible}
+  .B .dh{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 4px 18px;font:600 16px "Syne","Figtree",system-ui,sans-serif}
+  .B .menu{overflow:auto}
+
+  /* C expanding header */
+  .C .shell{position:relative;z-index:40;border-bottom:1px solid transparent;transition:background .3s,border-color .3s}
+  .C.open .shell{background:rgba(8,24,38,.7);border-color:var(--line);backdrop-filter:blur(14px)}
+  .C .fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+  .C.open .fold{grid-template-rows:1fr}
+  .C .fold>div{overflow:hidden}
+  .C .cols{display:grid;grid-template-columns:repeat(2,1fr);gap:0 12px;padding:0 10px 10px}
+  .C .cols .menu{padding:0}
+
+  /* D bottom sheet (phone) */
+  .D .layer{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;border-bottom:0;transform:translateY(104%);
+    transition:transform .4s var(--ease);visibility:hidden;max-height:78%;display:flex;flex-direction:column}
+  .D.open .layer{transform:none;visibility:visible}
+  .D .grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.28);margin:9px auto 2px;flex:none}
+  .D .menu{overflow:auto;padding-bottom:14px}
+
+  /* E floating pill that morphs */
+  .E .pill{position:absolute;z-index:40;top:10px;left:10px;right:10px;border-radius:26px;overflow:hidden;
+    background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:0 10px 30px -10px rgba(0,0,0,.55);
+    transition:border-radius .35s var(--ease),box-shadow .35s}
+  .E.open .pill{border-radius:22px;box-shadow:0 24px 60px -12px rgba(0,0,0,.65)}
+  .E .hdr{height:48px}
+  .E .fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+  .E.open .fold{grid-template-rows:1fr}
+  .E .fold>div{overflow:hidden}
+  .E .fold .menu{border-top:1px solid var(--line);margin-top:2px;max-height:380px;overflow:auto}
+  .E .appbody{padding-top:76px}
+
+  /* F anchored popover, header icons morph into a close button */
+  .F .layer{top:54px;right:10px;width:320px;max-height:calc(100% - 64px);overflow:auto;border-radius:16px;transform-origin:top right;
+    opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity .2s,transform .3s var(--ease)}
+  .F.open .layer{opacity:1;transform:none;pointer-events:auto}
+  .F .tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line)}
+  .F .tabs button{flex:1;border:0;background:none;color:var(--mut);padding:8px 6px 10px;font:inherit;font-size:13.5px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .F .tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--aqua)}
+  .F .tabs button:focus-visible{outline:2px solid var(--aqua);outline-offset:-2px;border-radius:8px}
+  .F [data-tabpanel]{display:none}.F [data-tabpanel].on{display:block}
+
+  @media (max-width:560px){.grid{grid-template-columns:1fr}.rules ul{columns:1}}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><g class="gear"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+  <symbol id="i-unplug" viewBox="0 0 24 24"><path d="M12 2v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</svg>
+
+<div class="page">
+  <h1>Header and settings menu: six options</h1>
+  <p class="lead">Click the gear in each mockup to open its menu. Settings rows are placeholders, nothing is wired. Press Esc or click outside to close.</p>
+
+  <section class="rules" aria-label="Research notes">
+    <h2>What the research says</h2>
+    <ul>
+      <li><b>Icon-only buttons need a name.</b> Each gets an aria-label plus a tooltip on hover and keyboard focus, so nobody has to guess.</li>
+      <li><b>44px touch targets.</b> Icons stay 20px, the hit area is larger. Spacing between neighbours avoids mis-taps.</li>
+      <li><b>The gear is a disclosure.</b> It carries aria-expanded and aria-controls, Esc closes it, and focus returns to the gear.</li>
+      <li><b>Match the container to the content.</b> A popover suits a short list, a drawer or an in-header panel suits a long one, a bottom sheet suits one-handed phone use.</li>
+      <li><b>Keep Disconnect apart from Settings</b> and tint it on hover only. It is the one destructive action in the bar.</li>
+      <li><b>Status stays a label, not a button.</b> A dot plus a word is readable without colour alone.</li>
+      <li><b>Group settings with plain headings</b>, put the most used first, and apply changes immediately with no Save button.</li>
+      <li><b>Respect reduced motion.</b> Panels fade instead of sliding when the user asks for it.</li>
+    </ul>
+  </section>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const icon = id => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+const hdr = (v, extra = '') => `
+  <div class="hdr">
+    <span class="hint">Warm white, 62% mix</span>
+    <span class="chip" role="status"><span class="dot"></span>Connected</span>
+    <button class="ib danger" aria-label="Disconnect from lamp" data-tip="Disconnect">${icon('unplug')}</button>
+    <button class="ib" data-gear aria-label="Settings" data-tip="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-${v}">${icon('gear')}</button>
+  </div>${extra}`;
+
+const body = `<div class="appbody"><div class="sk tall"></div><div class="sk"></div><div class="sk"></div><div class="sk s"></div></div>`;
+
+const row = (t, s, ctl) => `<div class="row"><div>${t}${s ? `<small>${s}</small>` : ''}</div>${ctl}</div>`;
+const sw = on => `<button class="sw" role="switch" aria-checked="${on}" aria-label="toggle"></button>`;
+const seg = (a, b, sel) => `<div class="seg" role="group"><button aria-pressed="${sel===0}">${a}</button><button aria-pressed="${sel===1}">${b}</button></div>`;
+
+const conn = `<h3>Connection</h3>
+  ${row('Remember this lamp','Skip the chooser next time',sw(true))}
+  ${row('Retry automatically','Up to 5 attempts',sw(true))}
+  <button class="row-btn">Forget saved lamp <span aria-hidden="true" style="color:var(--mut)">›</span></button>`;
+const lamp = `<h3>Lamp</h3>
+  ${row('Sync clock on connect','',sw(true))}
+  ${row('Colour fade','Smooth transitions',seg('Fast','Slow',1))}
+  <button class="row-btn">Recalibrate channels <span aria-hidden="true" style="color:var(--mut)">›</span></button>`;
+const disp = `<h3>Display</h3>
+  ${row('Time format','',seg('12 h','24 h',1))}
+  ${row('Reduce motion','Calmer background',sw(false))}`;
+const about = `<div class="ver">AquaLamp 0.1.0 · Bridge connected</div>`;
+
+const menus = {
+  A: `<div class="menu">${conn}${lamp}${disp}${about}</div>`,
+  B: `<div class="menu">${conn}${lamp}${disp}${about}</div>`,
+  C: `<div class="cols"><div class="menu">${conn}${disp}</div><div class="menu">${lamp}${about}</div></div>`,
+  D: `<div class="menu">${conn}${lamp}${disp}${about}</div>`,
+  E: `<div class="menu">${conn}${lamp}${disp}</div>`,
+  F: `<div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="c">Connection</button>
+        <button role="tab" aria-selected="false" data-tab="l">Lamp</button>
+        <button role="tab" aria-selected="false" data-tab="d">Display</button></div>
+      <div class="menu"><div data-tabpanel="c" class="on">${conn}</div><div data-tabpanel="l">${lamp}</div><div data-tabpanel="d">${disp}${about}</div></div>`
+};
+
+const opts = [
+ { k:'A', t:'Anchored popover', tag:'Simplest',
+   n:'<b>Opens right under the gear</b> as a small card. Quick in and out, and the lamp controls stay visible behind it. Best while there are few settings; gets cramped past about eight rows.',
+   html: v => `<div class="stage A" data-v="A">${hdr('A')}${body}<div class="scrim"></div>
+     <div class="layer panel" id="menu-A" role="dialog" aria-label="Settings">${menus.A}</div></div>` },
+ { k:'B', t:'Side drawer', tag:'Most room to grow',
+   n:'<b>Slides in from the right</b> over a dimmed page, with its own title and close button. Scrolls, so it takes new sections later without redesign. Hides the controls while open.',
+   html: v => `<div class="stage B" data-v="B">${hdr('B')}${body}<div class="scrim"></div>
+     <aside class="layer panel" id="menu-B" role="dialog" aria-label="Settings"><div class="dh">Settings<button class="ib" data-close aria-label="Close settings" data-tip="Close">${icon('x')}</button></div>${menus.B}</aside></div>` },
+ { k:'C', t:'Expanding header', tag:'Inline, no overlay',
+   n:'<b>The header itself unfolds downward</b> into two columns and pushes the page down. Nothing floats, so there is no scrim or stacking to manage. It reads as part of the page, not a separate window.',
+   html: v => `<div class="stage C" data-v="C"><div class="shell">${hdr('C', `<div class="fold" id="menu-C" role="region" aria-label="Settings"><div>${menus.C}</div></div>`)}</div>${body}</div>` },
+ { k:'D', t:'Bottom sheet on phones', tag:'Best one-handed',
+   n:'<b>Rises from the bottom edge</b> so thumbs reach every row. On wider screens it would switch to option A. Shown at phone width.',
+   html: v => `<div class="stage D phone" data-v="D">${hdr('D')}${body}<div class="scrim"></div>
+     <div class="layer panel" id="menu-D" role="dialog" aria-label="Settings"><div class="grab"></div>${menus.D}</div></div>` },
+ { k:'E', t:'Floating pill that grows', tag:'Most distinctive',
+   n:'<b>A detached, rounded glass bar</b> floats over the page. Opening it grows the same surface downward, so the bar and menu feel like one object. Needs top padding on the page so content clears the pill.',
+   html: v => `<div class="stage E" data-v="E"><div class="pill">${hdr('E', `<div class="fold" id="menu-E" role="region" aria-label="Settings"><div>${menus.E}</div></div>`)}</div>${body}</div>` },
+ { k:'F', t:'Popover with tabs', tag:'Tidy for many settings',
+   n:'<b>A compact popover that splits settings into tabs</b> (Connection, Lamp, Display). Fixed height regardless of content, so it never overflows the viewport. One extra tap to reach a group.',
+   html: v => `<div class="stage F" data-v="F">${hdr('F')}${body}<div class="scrim"></div>
+     <div class="layer panel" id="menu-F" role="dialog" aria-label="Settings">${menus.F}</div></div>` },
+];
+
+document.getElementById('grid').innerHTML = opts.map(o => `
+  <section class="opt"><header><span class="tag">${o.k}</span><h2>${o.t}</h2><span style="color:var(--mut);font-size:13px">${o.tag}</span></header>
+  <p class="note">${o.n}</p>${o.html()}</section>`).join('');
+
+document.querySelectorAll('.stage').forEach(st => {
+  const gear = st.querySelector('[data-gear]');
+  const set = open => { st.classList.toggle('open', open); gear.setAttribute('aria-expanded', open); };
+  gear.addEventListener('click', e => { e.stopPropagation(); set(!st.classList.contains('open')); });
+  st.querySelector('.scrim')?.addEventListener('click', () => set(false));
+  st.querySelector('[data-close]')?.addEventListener('click', () => { set(false); gear.focus(); });
+  st.addEventListener('keydown', e => { if (e.key === 'Escape' && st.classList.contains('open')) { set(false); gear.focus(); } });
+  document.addEventListener('click', e => { if (st.classList.contains('open') && !st.contains(e.target) && !st.classList.contains('B')) set(false); });
+  st.querySelectorAll('.sw').forEach(b => b.addEventListener('click', () => b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true')));
+  st.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.addEventListener('click', () => g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)))));
+  st.querySelectorAll('[data-tab]').forEach(t => t.addEventListener('click', () => {
+    st.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === t));
+    st.querySelectorAll('[data-tabpanel]').forEach(p => p.classList.toggle('on', p.dataset.tabpanel === t.dataset.tab));
+  }));
+});
+</script>
+</body>
+</html>

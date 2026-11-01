@@ -5,7 +5,8 @@ import type { ConnectionState, LampTime } from "@/lib/bridge";
 
 /** Same shape as useBridge, but talks to the lamp over Web Bluetooth from this tab. */
 export function useLamp() {
-  const lamp = useMemo(() => new Lamp(new WebBluetoothTransport(), { reconnectAttempts: 3 }), []);
+  const transport = useMemo(() => new WebBluetoothTransport(), []);
+  const lamp = useMemo(() => new Lamp(transport, { reconnectAttempts: 3 }), [transport]);
   const [snapshot, setSnapshot] = useState(lamp.current);
 
   useEffect(() => {
@@ -32,7 +33,11 @@ export function useLamp() {
     mock: false,
     error: snapshot.error ?? commandError,
     bridgeError: supported ? null : "Web Bluetooth is unavailable here. Use Chrome or Edge on localhost or HTTPS.",
-    connect: () => void lamp.connect(),
+    connect: (opts?: { remember?: boolean }) => {
+      transport.remember = opts?.remember ?? false;
+      void lamp.connect();
+    },
+    forgetDevice: () => void transport.forget(),
     disconnect: () => void lamp.disconnect(),
     setChannels: (partial: Partial<Channels>) => lamp.setChannels(partial),
     mode: snapshot.mode,

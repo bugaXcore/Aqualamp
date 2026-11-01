@@ -36,6 +36,9 @@ function diamondPoints(
   return `${cx},${cy - ry} ${cx + rx},${cy} ${cx},${cy + ry} ${cx - rx},${cy}`;
 }
 
+const gridLine = (pct: number) =>
+  `color-mix(in srgb, var(--t-muted) ${pct}%, transparent)`;
+
 const CHANNEL_STROKE: Record<keyof Channels, string> = {
   red: "#f87171",
   green: "#4ade80",
@@ -400,8 +403,8 @@ export function DayTimeline({
           >
             <defs>
               <linearGradient id="tl-depth" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(45, 212, 191, 0.06)" />
-                <stop offset="100%" stopColor="rgba(6, 16, 24, 0)" />
+                <stop offset="0%" stopColor="var(--t-glow)" />
+                <stop offset="100%" stopColor="transparent" />
               </linearGradient>
               <filter id="cti-glow" x="-50%" y="-20%" width="200%" height="140%">
                 <feGaussianBlur stdDeviation="2.2" result="blur" />
@@ -423,7 +426,7 @@ export function DayTimeline({
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="rgba(148, 210, 220, 0.07)"
+                  stroke={gridLine(14)}
                   strokeWidth={1}
                 />
               );
@@ -439,11 +442,7 @@ export function DayTimeline({
                   y1={Y0}
                   x2={x}
                   y2={Y0 + (major ? 8 : 4)}
-                  stroke={
-                    major
-                      ? "rgba(148, 210, 220, 0.28)"
-                      : "rgba(148, 210, 220, 0.12)"
-                  }
+                  stroke={major ? gridLine(50) : gridLine(24)}
                   strokeWidth={1}
                 />
               );
@@ -455,7 +454,7 @@ export function DayTimeline({
                 y1={PAD_TOP}
                 x2={(hour / 24) * W}
                 y2={Y0}
-                stroke="rgba(148, 210, 220, 0.05)"
+                stroke={gridLine(10)}
                 strokeWidth={1}
               />
             ))}
@@ -465,7 +464,7 @@ export function DayTimeline({
               y1={Y0}
               x2={W}
               y2={Y0}
-              stroke="rgba(148, 210, 220, 0.18)"
+              stroke={gridLine(36)}
               strokeWidth={1.25}
             />
 
@@ -572,11 +571,7 @@ export function DayTimeline({
                       y1={PAD_TOP + 2}
                       x2={x}
                       y2={Y0}
-                      stroke={
-                        active
-                          ? "rgba(94, 234, 212, 0.55)"
-                          : "rgba(148, 210, 220, 0.18)"
-                      }
+                      stroke={active ? "var(--t-accent)" : gridLine(36)}
                       strokeWidth={active ? 1.5 : 1}
                       strokeDasharray={active ? undefined : "2 5"}
                       vectorEffect="non-scaling-stroke"
@@ -599,7 +594,7 @@ export function DayTimeline({
                           sy,
                         )}
                         fill={CHANNEL_STROKE[ch]}
-                        stroke="#061018"
+                        stroke="var(--t-panel)"
                         strokeWidth={1.25}
                         vectorEffect="non-scaling-stroke"
                         opacity={0.97}
@@ -620,7 +615,7 @@ export function DayTimeline({
                       y1={PAD_TOP + 4}
                       x2={x}
                       y2={Y0}
-                      stroke="rgba(148, 210, 220, 0.2)"
+                      stroke={gridLine(40)}
                       strokeWidth={1}
                       strokeDasharray="2 4"
                       vectorEffect="non-scaling-stroke"
@@ -637,7 +632,7 @@ export function DayTimeline({
                         key={ch}
                         points={diamondPoints(x, yFor(val), 4.5, sx, sy)}
                         fill={CHANNEL_STROKE[ch]}
-                        stroke="#061018"
+                        stroke="var(--t-panel)"
                         strokeWidth={1}
                         vectorEffect="non-scaling-stroke"
                       />
@@ -666,7 +661,7 @@ export function DayTimeline({
                 y1={4}
                 x2={(playheadMinutes / 1440) * W}
                 y2={Y0}
-                stroke="#5eead4"
+                stroke="var(--t-accent)"
                 strokeWidth={2}
                 opacity={0.95}
                 vectorEffect="non-scaling-stroke"
@@ -679,8 +674,8 @@ export function DayTimeline({
                   sx,
                   sy,
                 )}
-                fill="#5eead4"
-                stroke="#061018"
+                fill="var(--t-accent)"
+                stroke="var(--t-panel)"
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
               />

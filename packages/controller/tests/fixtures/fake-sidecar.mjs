@@ -8,7 +8,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   const msg = JSON.parse(line);
   if (msg.cmd === "connect") {
     if (msg.address === "bad") out({ id: msg.id, ok: false, error: "Lamp not found." });
-    else out({ id: msg.id, ok: true });
+    else out({ id: msg.id, ok: true, address: msg.address ?? "AA:BB:CC:DD:EE:FF" });
   } else if (msg.cmd === "send") {
     if (msg.hex.startsWith("00")) out({ id: msg.id, ok: false, error: "frame refused" });
     else if (msg.hex.startsWith("fd f0")) {

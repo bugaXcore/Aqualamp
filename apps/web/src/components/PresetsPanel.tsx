@@ -3,7 +3,7 @@ import { Copy, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   isBuiltinPreset,
   isFreeManualPreset,
-  presetMixBackground,
+  presetOrbBackground,
   type DayPreset,
   type PresetMode,
   type SnapMode,
@@ -101,7 +101,7 @@ export function PresetsPanel({
           const rowDirty = dirtyIds?.has(preset.id) ?? false;
           const showUserChrome =
             composing && active && !builtin && renamingId !== preset.id;
-          const mixBg = presetMixBackground(preset);
+          const orbBg = presetOrbBackground(preset);
 
           return (
             <li key={preset.id}>
@@ -122,15 +122,13 @@ export function PresetsPanel({
                     : "border-teal-200/10 bg-depth-900/50 hover:border-teal-200/20",
                 )}
               >
-                <div
-                  aria-hidden
-                  className="preset-mix-preview pointer-events-none absolute inset-y-0 right-0"
-                  style={{ background: mixBg }}
-                />
-
                 <div className="relative z-[1] px-2.5 py-1.5">
-                  <div className="flex items-center gap-2">
-                    {renamingId === preset.id ? (
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className="preset-orb"
+                      style={{ background: orbBg }}
+                    />                    {renamingId === preset.id ? (
                       <form
                         className="flex min-w-0 flex-[0_1_70%]"
                         onClick={(e) => e.stopPropagation()}

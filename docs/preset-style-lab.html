@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AquaLamp preset style lab</title>
+<style>
+  :root { color-scheme: dark; --bg:#1f1e1d; --panel:#262624; --raised:#30302e; --line:#3d3c39; --text:#f0eee6; --muted:#a8a59b; --accent:#d97757; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:32px 24px 80px; background:var(--bg); color:var(--text); font:14px/1.45 "Figtree",system-ui,sans-serif; }
+  h1 { margin:0 0 6px; font-size:22px; font-weight:650; }
+  .lede { margin:0 0 18px; max-width:72ch; color:var(--muted); }
+  .bar { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:26px; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .seg button { border:0; background:transparent; color:var(--muted); padding:7px 14px; font:inherit; cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--raised); color:var(--text); }
+  .grid { display:grid; gap:22px; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .card h2 { margin:0; font-size:15px; font-weight:650; }
+  .card h2 span { color:var(--accent); margin-right:8px; }
+  .card p { margin:4px 0 12px; color:var(--muted); font-size:12.5px; min-height:2.9em; }
+  .rows { display:flex; flex-direction:column; gap:5px; }
+  .row { position:relative; overflow:hidden; height:48px; border:1px solid var(--line); border-radius:10px; background:var(--panel);
+         display:flex; align-items:center; padding:0 12px; gap:10px; isolation:isolate; }
+  .row .fx { position:absolute; inset:0; z-index:-1; }
+  .row .name { font-weight:600; font-size:13px; white-space:nowrap; }
+  .row .orb { width:28px; height:28px; border-radius:50%; flex:none; box-shadow:inset 0 0 0 1px rgba(255,255,255,.25), 0 2px 8px rgba(0,0,0,.35); }
+  .row .rest { flex:1; }
+  .row .tl { height:6px; width:38%; border-radius:6px; flex:none; }
+  .row.shade .name { text-shadow:0 1px 3px rgba(0,0,0,.55); color:#fff; }
+</style>
+</head>
+<body>
+<h1>Preset styles inspired by csspro.com/css-gradients</h1>
+<p class="lede">
+  What stands out in that collection: saturated multi-stop blends, diagonal angles, hue that travels (warm to cool),
+  soft glows, and a gradient orb as a swatch. Six ways to carry that into the preset list. Every option is drawn from
+  each preset's real 24 h curve (UV left out). Fixed presets have one colour, so they get a built palette around it;
+  gradual presets use the colours of their day. Toggle natural vs vivid to compare.
+</p>
+<div class="bar">
+  <div class="seg" id="vib" role="group" aria-label="Colour intensity">
+    <button data-v="0.62" aria-pressed="false">Natural</button>
+    <button data-v="0.8" aria-pressed="true">Balanced</button>
+    <button data-v="1" aria-pressed="false">Vivid</button>
+  </div>
+</div>
+<div class="grid" id="grid"></div>
+
+<script>(()=>{var m={red:0,green:0,blue:0,uv:0};function u(t,r,n,o){return{red:t,green:r,blue:n,uv:o}}function e(t,r,n,o,a,s,i){return{id:`builtin-${t.toLowerCase().replace(/\s+/g,"-")}`,label:t,minutes:r*60+n,channels:u(o,a,s,i)}}var x="builtin-free-manual",w=u(42,48,55,18),g=[{id:x,name:"Sliders mode",description:"Drag the top R/G/B/UV sliders anytime. Day presets below drive schedules and locked looks \u2014 Duplicate those to compose your own curve.",mode:"constant",constantChannels:{...w},keyframes:[],snap:"free",interpolation:"linear",builtin:!0},{id:"builtin-bioactive-24-7",name:"Daily Driver",description:"For deep, nutrient-rich dirted layers topped with sand, managing the photoperiod is critical to prevent algae blooms before the microfauna and plants fully establish. This curve utilizes a long, slow ramp-up to gently wake the tank, a short midday peak for high-energy photosynthesis, and a warm evening fade.",mode:"schedule",constantChannels:{...m},snap:"free",interpolation:"linear",builtin:!0,keyframes:[e("Sunrise",8,30,10,5,0,0),e("Morning Climb",10,30,50,40,30,10),e("Midday Peak",13,30,85,65,60,40),e("Afternoon Ease",17,30,60,45,40,20),e("Evening Chill",20,0,40,10,0,0),e("Total Dark",22,30,0,0,0,0)]},{id:"builtin-jewel-canopy",name:"Jewel Canopy",description:"This is a low-intensity, high-fluorescence mix designed specifically for the shaded, humid terrestrial zones of a paludarium. Cranking the UV channel while dropping the primary RGB colors dramatically highlights the sparkling, lightning-bolt veins of Macodes petola and other jewel orchids without scorching their delicate leaves.",mode:"constant",constantChannels:u(50,25,35,80),keyframes:[],snap:"free",interpolation:"linear",builtin:!0},{id:"builtin-high-contrast-scape",name:"High Contrast",description:'This preset is engineered to maximize color separation. Pushing the red channel to 100% makes Neocaridina shrimp and red stem plants visually "pop" and look incredibly vibrant, while the moderate blue and green keep epiphytes looking lush. This mix creates a striking, moody contrast against dark, porous hardscapes like Scoria lava rock.',mode:"constant",constantChannels:u(100,45,55,30),keyframes:[],snap:"free",interpolation:"linear",builtin:!0},{id:"builtin-crisp-photography",name:"Crisp Photo",description:"Most RGB aquarium lights create a slight magenta or warm hue that looks great to the human eye but confuses smartphone cameras. This is a flat, perfectly balanced 6500K daylight equivalent. It provides clean, white illumination so you can take accurate photos of your layout without weird color casting.",mode:"constant",constantChannels:u(75,75,75,15),keyframes:[],snap:"free",interpolation:"linear",builtin:!0},{id:"builtin-lunar-viewing",name:"Lunar Night",description:"A very dim, cold blue/UV mix for late-night viewing. It provides just enough illumination to observe nocturnal microfauna activity and cleaners emerging from the substrate, without triggering algae growth or severely disrupting the circadian rhythm of the tank.",mode:"constant",constantChannels:u(0,0,8,5),keyframes:[],snap:"free",interpolation:"linear",builtin:!0},{id:"builtin-planted-medium",name:"Planted Tank",description:"A 7.5 hour day (6 hour peak) aimed at 40-90 \xB5mol PAR at the substrate. Balanced red and blue for photosynthesis with enough green to look natural, a blue-led dawn and a warm dusk that keeps red longer. UV stays off because plants gain nothing from it. The ramps soften the light/dark boundary that can trigger algae. For a new tank, start at about 50% brightness with a shorter peak and add about 30 minutes and 5% per week. Shift the times to suit when you are home.",mode:"schedule",constantChannels:{...m},snap:"free",interpolation:"linear",builtin:!0,keyframes:[e("Planted Sunrise",10,15,0,0,0,0),e("Planted First Light",10,25,18,8,4,0),e("Planted Warm Dawn",10,35,45,35,30,0),e("Planted Peak Start",10,45,80,65,75,0),e("Planted Peak End",16,45,80,65,75,0),e("Planted Afternoon Sun",16,55,62,45,40,0),e("Planted Golden Hour",17,5,30,14,6,0),e("Planted Sunset",17,15,0,0,0,0)]},{id:"builtin-reef-mixed",name:"Mixed Reef",description:"A 9.5 hour day (6 hour peak) aimed at 100-200 PAR. Heavily blue with modest UV and a small red/green supplement. In the evening red and green fade first while blue and UV linger, which brings out fluorescence and follows natural twilight. Moonlight runs overnight at the lowest level the lamp can show (the research suggests 0.5-2% scaled to the lunar phase). New lamps or corals should start at about 50% brightness and add about 5% per week. Shift the times to suit when you are home.",mode:"schedule",constantChannels:{...m},snap:"free",interpolation:"linear",builtin:!0,keyframes:[e("Reef Moon End",6,0,0,0,0,0),e("Reef Sunrise",11,0,0,0,0,0),e("Reef First Light",11,10,8,4,20,8),e("Reef Warm Dawn",11,20,14,14,58,22),e("Reef Peak Start",11,30,20,25,100,35),e("Reef Peak End",17,30,20,25,100,35),e("Reef Golden Hour",17,45,14,16,88,35),e("Reef Sunset",18,0,8,10,70,30),e("Reef Blue Shift",18,30,2,3,40,20),e("Reef Twilight",19,0,0,0,22,12),e("Reef Dusk",19,30,0,0,8,4),e("Reef Moon Start",20,0,0,0,1,0),e("Reef Moon Late",5,59,0,0,1,0)]},{id:"builtin-community-fish",name:"Community Fish",description:"A 7.75 hour day (6.5 hour peak) aimed at 20-40 \xB5mol PAR for fish with undemanding plants such as anubias, java fern and crypts. Fish body clocks follow light/dark changes and respond most to blue-green light, so dusk goes warm with blue and green dropping first, then full darkness. No moonlight. If algae appears, shorten the peak before changing anything else.",mode:"schedule",constantChannels:{...m},snap:"free",interpolation:"linear",builtin:!0,keyframes:[e("Community Sunrise",9,0,0,0,0,0),e("Community First Light",9,10,14,8,4,0),e("Community Warm Dawn",9,20,30,24,22,0),e("Community Peak Start",9,30,45,40,45,0),e("Community Peak End",16,0,45,40,45,0),e("Community Golden Hour",16,10,40,26,16,0),e("Community Embers",16,20,24,8,2,0),e("Community Sunset",16,30,0,0,0,0)]}],k=new Set(g.map(t=>t.id));function h(t,r,n){return(1-n)*t+n*r}function M(t,r,n){return{red:Math.round(h(t.red,r.red,n)),green:Math.round(h(t.green,r.green,n)),blue:Math.round(h(t.blue,r.blue,n)),uv:Math.round(h(t.uv,r.uv,n))}}function y(t,r){if(t.mode==="constant")return{...t.constantChannels};let n=[...t.keyframes].sort((l,d)=>l.minutes-d.minutes);if(n.length===0)return{...m};if(n.length===1)return{...n[0].channels};let o=(Math.round(r)%1440+1440)%1440,a=n[n.length-1],s=n[0],i=a.minutes-1440,c=s.minutes;for(let l=0;l<n.length-1;l++){let d=n[l],f=n[l+1];if(o>=d.minutes&&o<f.minutes){a=d,s=f,i=d.minutes,c=f.minutes;break}}o>=n[n.length-1].minutes&&(a=n[n.length-1],s=n[0],i=a.minutes,c=s.minutes+1440);let b=c-i,p=b<=0?0:(o-i)/b,P=p*p*(3-2*p);return M(a.channels,s.channels,P)}function C(t){let{r,g:n,b:o}=S(t);return`rgb(${r}, ${n}, ${o})`}function S(t){let r=Math.round(t.red/100*255),n=Math.round(t.green/100*255),o=Math.round(t.blue/100*255),a=t.uv/100;return{r:Math.round(r*(1-a*.35)+168*a),g:Math.round(n*(1-a*.35)+85*a),b:Math.round(o*(1-a*.25)+247*a)}}window.AQ={presets:g,interpolateAt:y,channelsToCss:C};})();
+</script>
+<script>
+const { presets, interpolateAt } = window.AQ;
+let vib = 0.8;
+
+/* ---------- colour ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+function tone(c) {                       // R,G,B only; UV ignored
+  const max = Math.max(c.red, c.green, c.blue);
+  if (max <= 0) return { h: 215, s: .25, l: .14, on: false };
+  const rn = c.red / max, gn = c.green / max, bn = c.blue / max;
+  const hi = Math.max(rn, gn, bn), lo = Math.min(rn, gn, bn), d = hi - lo;
+  let h = 0;
+  if (d > 0) {
+    if (hi === rn) h = ((gn - bn) / d) % 6; else if (hi === gn) h = (bn - rn) / d + 2; else h = (rn - gn) / d + 4;
+    h = (h * 60 + 360) % 360;
+  }
+  const sat = hi === 0 ? 0 : d / hi;
+  const level = Math.min(1, max / 100);
+  return { h, s: clamp(sat * (0.55 + 0.5 * vib), 0, 0.92), l: 0.2 + 0.4 * Math.sqrt(level), on: true };
+}
+const css = (c, a = 1) => `hsl(${((c.h % 360) + 360) % 360}deg ${(clamp(c.s) * 100).toFixed(1)}% ${(clamp(c.l) * 100).toFixed(1)}% / ${a})`;
+function mix(a, b, t) {
+  let dh = b.h - a.h; if (dh > 180) dh -= 360; if (dh < -180) dh += 360;
+  return { h: a.h + dh * t, s: a.s + (b.s - a.s) * t, l: a.l + (b.l - a.l) * t };
+}
+
+/* day samples: [{t:0..1, c:tone}] across 24 h */
+function day(p, n = 48) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const m = Math.round((i / n) * 1439);
+    out.push({ t: i / n, c: tone(p.mode === "constant" ? p.constantChannels : interpolateAt(p, m)) });
+  }
+  return out;
+}
+/* palette of lit colours, brightest first */
+function palette(p) {
+  const lit = day(p, 96).filter(s => s.c.on).sort((a, b) => b.c.l - a.c.l);
+  if (!lit.length) return [tone({ red: 0, green: 0, blue: 20 })];
+  const pick = q => lit[Math.min(lit.length - 1, Math.round(q * (lit.length - 1)))].c;
+  const a = pick(0), b = pick(.4), c = pick(.85);
+  return p.mode === "constant"
+    ? [a, { ...a, h: a.h - 22, l: a.l - .06 }, { ...a, h: a.h + 34, l: a.l - .12 }]   // fixed: hue travels around its colour
+    : [a, b, c];
+}
+const ease = t => t < .5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+
+/* ---------- styles: each returns {bg, cls, extra} ---------- */
+const styles = [
+  { n: 'Day spectrum', d: 'The whole 24 h curve laid left to right: night, sunrise, noon, sunset, night. What the lamp does, at a glance. Sits behind the name at low strength.',
+    fx: p => { const s = day(p).map(x => `${css(x.c, .78)} ${(x.t * 100).toFixed(1)}%`); return `linear-gradient(90deg, ${s.join(',')})`; } },
+  { n: 'Diagonal blend', d: 'Three-stop 43° blend like #5 on the page. Brightest colour in the corner, travelling hue across the row.',
+    fx: p => { const [a, b, c] = palette(p); return `linear-gradient(43deg, ${css(c, .9)} 0%, ${css(b, .9)} 46%, ${css(a, .95)} 100%)`; } },
+  { n: 'Aurora mesh', d: 'Layered soft radial blobs from the palette, like the glow cards. Reads as light, not as a flat bar.',
+    fx: p => { const [a, b, c] = palette(p); return `radial-gradient(60% 140% at 92% 20%, ${css(a, .95)}, transparent 60%), radial-gradient(55% 150% at 60% 110%, ${css(b, .85)}, transparent 62%), radial-gradient(60% 150% at 18% -10%, ${css(c, .75)}, transparent 62%)`; } },
+  { n: 'Gradient orb', d: 'A glossy circle swatch with a ring, exactly like the cards on csspro. Row stays calm, colour is carried by the orb.',
+    orb: p => { const [a, b, c] = palette(p); return `linear-gradient(160deg, ${css(a)} 0%, ${css(b)} 55%, ${css(c)} 100%)`; } },
+  { n: 'Day orb', d: 'Orb filled with a conic gradient of the day, like the Conic.css entries: midnight at the top, noon at the bottom. A clock face in colour.',
+    orb: p => { const s = day(p, 48).map(x => `${css(x.c)} ${(x.t * 360).toFixed(1)}deg`); return `conic-gradient(from 180deg, ${s.join(',')})`; } },
+  { n: 'Edge glow + day line', d: 'Soft vivid wash from the right edge (our current idea, richer) plus a thin 24 h strip under the name for the curve.',
+    fx: p => { const [a, b, c] = palette(p); const n = 14, st = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t, x = u * 2, k = Math.min(1, Math.floor(x)); const col = mix([a, b, c][k], [a, b, c][k + 1], x - k); st.push(`${css(col, ease(t))} ${(t * 100).toFixed(1)}%`); } return `linear-gradient(90deg, ${st.join(',')})`; },
+    tl: p => { const s = day(p).map(x => `${css(x.c)} ${(x.t * 100).toFixed(1)}%`); return `linear-gradient(90deg, ${s.join(',')})`; } },
+];
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = styles.map((s, i) => `
+    <section class="card"><h2><span>${i + 1}</span>${s.n}</h2><p>${s.d}</p><div class="rows">
+    ${presets.map(p => {
+      const shade = !!s.fx && s.n !== 'Edge glow + day line';
+      return `<div class="row ${shade ? 'shade' : ''}">
+        ${s.fx ? `<div class="fx" style="background:${s.fx(p)}"></div>` : ''}
+        ${s.orb ? `<span class="orb" style="background:${s.orb(p)}"></span>` : ''}
+        <span class="name">${p.name}</span>
+        ${s.tl ? `<span class="rest"></span><span class="tl" style="background:${s.tl(p)}"></span>` : ''}
+      </div>`;
+    }).join('')}
+    </div></section>`).join('');
+}
+document.getElementById('vib').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  vib = +b.dataset.v;
+  document.querySelectorAll('#vib button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+render();
+</script>
+</body>
+</html>

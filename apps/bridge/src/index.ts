@@ -13,13 +13,15 @@ import {
   type LampSnapshot,
   type ScheduleWindow,
 } from "@aqualamp/controller";
+import { RememberedDevice } from "./rememberedDevice.js";
 
 loadEnvFile();
 
 type Time = { hours: number; minutes: number };
 
 type ClientMessage =
-  | { type: "connect" }
+  | { type: "connect"; remember?: boolean }
+  | { type: "forget" }
   | { type: "disconnect" }
   | { type: "setChannels"; channels: Partial<Channels> }
   | { type: "power"; on: boolean }
@@ -55,6 +57,8 @@ const lamp = new Lamp(transport, {
   calibrated: flag("AQUALAMP_CALIBRATED", false),
   reconnectAttempts: Number(process.env.AQUALAMP_RECONNECT_ATTEMPTS ?? 3),
 });
+
+const device = new RememberedDevice();
 
 const status = (s: LampSnapshot = lamp.current): Status => ({
   state: s.state,
@@ -113,8 +117,16 @@ wss.on("connection", (ws) => {
 
     try {
       switch (msg.type) {
-        case "connect":
-          await lamp.connect();
+        case "connect": {
+          const remembered = msg.remember ? device.get() : undefined;
+          await lamp.connect(remembered);
+          if (lamp.current.state === "connected" && msg.remember && transport instanceof SidecarTransport && transport.connectedAddress) {
+            device.set(transport.connectedAddress);
+          }
+          break;
+        }
+        case "forget":
+          device.clear();
           break;
         case "disconnect":
           await lamp.disconnect();

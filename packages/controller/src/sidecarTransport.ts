@@ -12,7 +12,7 @@ export type SidecarOptions = {
   requestTimeoutMs?: number;
 };
 
-type Pending = { resolve: () => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
+type Pending = { resolve: (reply: { address?: string }) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 
 /** Talks to the lamp through the Python bleak sidecar (Node-only). */
 export class SidecarTransport implements LampTransport {
@@ -21,13 +21,16 @@ export class SidecarTransport implements LampTransport {
   private pending = new Map<number, Pending>();
   private listeners = new Set<(state: ConnectionState, error?: Error) => void>();
   private ready: Promise<void> | null = null;
+  /** Address of the lamp from the last successful connect. */
+  connectedAddress: string | null = null;
 
   constructor(private readonly options: SidecarOptions = {}) {}
 
   async connect(lampId?: string): Promise<void> {
     await this.start();
     this.emit("scanning");
-    await this.request({ cmd: "connect", address: lampId ?? this.options.address }, 45_000);
+    const reply = await this.request({ cmd: "connect", address: lampId ?? this.options.address }, 45_000);
+    this.connectedAddress = reply.address ?? null;
     this.emit("connected");
   }
 
@@ -39,7 +42,7 @@ export class SidecarTransport implements LampTransport {
 
   send(frame: Uint8Array): Promise<void> {
     const hex = Array.from(frame, (b) => b.toString(16).padStart(2, "0")).join(" ");
-    return this.request({ cmd: "send", hex });
+    return this.request({ cmd: "send", hex }).then(() => undefined);
   }
 
   onState(listener: (state: ConnectionState, error?: Error) => void): () => void {
@@ -63,7 +66,7 @@ export class SidecarTransport implements LampTransport {
     this.ready = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("BLE sidecar did not start. Is Python with bleak installed?")), 10_000);
       createInterface({ input: child.stdout }).on("line", (line) => {
-        let msg: { event?: string; state?: string; id?: number; ok?: boolean; error?: string };
+        let msg: { event?: string; state?: string; id?: number; ok?: boolean; error?: string; address?: string };
         try {
           msg = JSON.parse(line);
         } catch {
@@ -79,7 +82,7 @@ export class SidecarTransport implements LampTransport {
           if (!entry) return;
           this.pending.delete(msg.id);
           clearTimeout(entry.timer);
-          if (msg.ok) entry.resolve();
+          if (msg.ok) entry.resolve({ address: msg.address });
           else entry.reject(new Error(msg.error ?? "Sidecar error"));
         }
       });
@@ -103,11 +106,11 @@ export class SidecarTransport implements LampTransport {
     return this.ready;
   }
 
-  private request(body: Record<string, unknown>, timeoutMs = this.options.requestTimeoutMs ?? 10_000): Promise<void> {
+  private request(body: Record<string, unknown>, timeoutMs = this.options.requestTimeoutMs ?? 10_000): Promise<{ address?: string }> {
     const child = this.child;
     if (!child) return Promise.reject(new Error("BLE sidecar is not running."));
     const id = this.nextId++;
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<{ address?: string }>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error("BLE sidecar timed out."));

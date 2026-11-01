@@ -1,4 +1,4 @@
-import { channelsToCss, type Channels } from "@/lib/bridge";
+import type { Channels } from "@/lib/bridge";
 
 export type PresetMode = "constant" | "schedule";
 export type SnapMode = "free" | "hour";
@@ -102,7 +102,7 @@ export const BUILTIN_PRESETS: DayPreset[] = [
   },
   {
     id: "builtin-bioactive-24-7",
-    name: "The Bioactive 24/7 Cycle (The Daily Driver)",
+    name: "Daily Driver",
     description:
       "For deep, nutrient-rich dirted layers topped with sand, managing the photoperiod is critical to prevent algae blooms before the microfauna and plants fully establish. This curve utilizes a long, slow ramp-up to gently wake the tank, a short midday peak for high-energy photosynthesis, and a warm evening fade.",
     mode: "schedule",
@@ -121,7 +121,7 @@ export const BUILTIN_PRESETS: DayPreset[] = [
   },
   {
     id: "builtin-jewel-canopy",
-    name: "The Jewel Canopy",
+    name: "Jewel Canopy",
     description:
       "This is a low-intensity, high-fluorescence mix designed specifically for the shaded, humid terrestrial zones of a paludarium. Cranking the UV channel while dropping the primary RGB colors dramatically highlights the sparkling, lightning-bolt veins of Macodes petola and other jewel orchids without scorching their delicate leaves.",
     mode: "constant",
@@ -133,7 +133,7 @@ export const BUILTIN_PRESETS: DayPreset[] = [
   },
   {
     id: "builtin-high-contrast-scape",
-    name: "The High-Contrast Scape",
+    name: "High Contrast",
     description:
       'This preset is engineered to maximize color separation. Pushing the red channel to 100% makes Neocaridina shrimp and red stem plants visually "pop" and look incredibly vibrant, while the moderate blue and green keep epiphytes looking lush. This mix creates a striking, moody contrast against dark, porous hardscapes like Scoria lava rock.',
     mode: "constant",
@@ -145,7 +145,7 @@ export const BUILTIN_PRESETS: DayPreset[] = [
   },
   {
     id: "builtin-crisp-photography",
-    name: "Crisp Photography",
+    name: "Crisp Photo",
     description:
       "Most RGB aquarium lights create a slight magenta or warm hue that looks great to the human eye but confuses smartphone cameras. This is a flat, perfectly balanced 6500K daylight equivalent. It provides clean, white illumination so you can take accurate photos of your layout without weird color casting.",
     mode: "constant",
@@ -157,7 +157,7 @@ export const BUILTIN_PRESETS: DayPreset[] = [
   },
   {
     id: "builtin-lunar-viewing",
-    name: "Lunar Viewing",
+    name: "Lunar Night",
     description:
       "A very dim, cold blue/UV mix for late-night viewing. It provides just enough illumination to observe nocturnal microfauna activity and cleaners emerging from the substrate, without triggering algae growth or severely disrupting the circadian rhythm of the tank.",
     mode: "constant",
@@ -166,6 +166,74 @@ export const BUILTIN_PRESETS: DayPreset[] = [
     snap: "free",
     interpolation: "linear",
     builtin: true,
+  },
+  {
+    id: "builtin-planted-medium",
+    name: "Planted Tank",
+    description:
+      "A 7.5 hour day (6 hour peak) aimed at 40-90 µmol PAR at the substrate. Balanced red and blue for photosynthesis with enough green to look natural, a blue-led dawn and a warm dusk that keeps red longer. UV stays off because plants gain nothing from it. The ramps soften the light/dark boundary that can trigger algae. For a new tank, start at about 50% brightness with a shorter peak and add about 30 minutes and 5% per week. Shift the times to suit when you are home.",
+    mode: "schedule",
+    constantChannels: { ...ZERO_CHANNELS },
+    snap: "free",
+    interpolation: "linear",
+    builtin: true,
+    keyframes: [
+      kf("Planted Sunrise", 10, 15, 0, 0, 0, 0),
+      kf("Planted First Light", 10, 25, 18, 8, 4, 0),
+      kf("Planted Warm Dawn", 10, 35, 45, 35, 30, 0),
+      kf("Planted Peak Start", 10, 45, 80, 65, 75, 0),
+      kf("Planted Peak End", 16, 45, 80, 65, 75, 0),
+      kf("Planted Afternoon Sun", 16, 55, 62, 45, 40, 0),
+      kf("Planted Golden Hour", 17, 5, 30, 14, 6, 0),
+      kf("Planted Sunset", 17, 15, 0, 0, 0, 0),
+    ],
+  },
+  {
+    id: "builtin-reef-mixed",
+    name: "Mixed Reef",
+    description:
+      "A 9.5 hour day (6 hour peak) aimed at 100-200 PAR. Heavily blue with modest UV and a small red/green supplement. In the evening red and green fade first while blue and UV linger, which brings out fluorescence and follows natural twilight. Moonlight runs overnight at the lowest level the lamp can show (the research suggests 0.5-2% scaled to the lunar phase). New lamps or corals should start at about 50% brightness and add about 5% per week. Shift the times to suit when you are home.",
+    mode: "schedule",
+    constantChannels: { ...ZERO_CHANNELS },
+    snap: "free",
+    interpolation: "linear",
+    builtin: true,
+    keyframes: [
+      kf("Reef Moon End", 6, 0, 0, 0, 0, 0),
+      kf("Reef Sunrise", 11, 0, 0, 0, 0, 0),
+      kf("Reef First Light", 11, 10, 8, 4, 20, 8),
+      kf("Reef Warm Dawn", 11, 20, 14, 14, 58, 22),
+      kf("Reef Peak Start", 11, 30, 20, 25, 100, 35),
+      kf("Reef Peak End", 17, 30, 20, 25, 100, 35),
+      kf("Reef Golden Hour", 17, 45, 14, 16, 88, 35),
+      kf("Reef Sunset", 18, 0, 8, 10, 70, 30),
+      kf("Reef Blue Shift", 18, 30, 2, 3, 40, 20),
+      kf("Reef Twilight", 19, 0, 0, 0, 22, 12),
+      kf("Reef Dusk", 19, 30, 0, 0, 8, 4),
+      kf("Reef Moon Start", 20, 0, 0, 0, 1, 0),
+      kf("Reef Moon Late", 5, 59, 0, 0, 1, 0),
+    ],
+  },
+  {
+    id: "builtin-community-fish",
+    name: "Community Fish",
+    description:
+      "A 7.75 hour day (6.5 hour peak) aimed at 20-40 µmol PAR for fish with undemanding plants such as anubias, java fern and crypts. Fish body clocks follow light/dark changes and respond most to blue-green light, so dusk goes warm with blue and green dropping first, then full darkness. No moonlight. If algae appears, shorten the peak before changing anything else.",
+    mode: "schedule",
+    constantChannels: { ...ZERO_CHANNELS },
+    snap: "free",
+    interpolation: "linear",
+    builtin: true,
+    keyframes: [
+      kf("Community Sunrise", 9, 0, 0, 0, 0, 0),
+      kf("Community First Light", 9, 10, 14, 8, 4, 0),
+      kf("Community Warm Dawn", 9, 20, 30, 24, 22, 0),
+      kf("Community Peak Start", 9, 30, 45, 40, 45, 0),
+      kf("Community Peak End", 16, 0, 45, 40, 45, 0),
+      kf("Community Golden Hour", 16, 10, 40, 26, 16, 0),
+      kf("Community Embers", 16, 20, 24, 8, 2, 0),
+      kf("Community Sunset", 16, 30, 0, 0, 0, 0),
+    ],
   },
 ];
 
@@ -344,30 +412,65 @@ export function interpolateAt(
   return lerpChannels(p1.channels, p2.channels, progress);
 }
 
+type Hsl = { h: number; s: number; l: number };
+
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+/** Hue/saturation from R, G, B only (UV ignored), then softened into a natural tone. */
+function naturalTone(c: Channels): Hsl {
+  const max = Math.max(c.red, c.green, c.blue);
+  if (max <= 0) return { h: 210, s: 0.2, l: 0.2 };
+  const r = (c.red / max) * 255;
+  const g = (c.green / max) * 255;
+  const b = (c.blue / max) * 255;
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const hi = Math.max(rn, gn, bn);
+  const lo = Math.min(rn, gn, bn);
+  const d = hi - lo;
+  let h = 0;
+  if (d > 0) {
+    if (hi === rn) h = ((gn - bn) / d) % 6;
+    else if (hi === gn) h = (bn - rn) / d + 2;
+    else h = (rn - gn) / d + 4;
+    h = (h * 60 + 360) % 360;
+  }
+  const sat = hi === 0 ? 0 : d / hi;
+  const level = Math.min(1, max / 100);
+  return {
+    h,
+    s: Math.min(0.62, sat * 0.72),
+    l: 0.2 + 0.34 * Math.sqrt(level),
+  };
+}
+
+function hslCss(c: Hsl, alpha = 1): string {
+  const h = ((c.h % 360) + 360) % 360;
+  return `hsl(${h.toFixed(1)} ${(clamp01(c.s) * 100).toFixed(1)}% ${(clamp01(c.l) * 100).toFixed(1)}% / ${clamp01(alpha).toFixed(3)})`;
+}
+
 /**
- * CSS background summarizing a preset mix for list-row previews.
- * Constant → solid RGB(+UV violet). Schedule → horizontal day strip.
+ * Day-orb swatch: a conic gradient of the 24 h curve, midnight at the top and
+ * noon at the bottom. Unlit hours render as a dim blue-grey.
  */
-export function presetMixBackground(
-  preset: DayPreset,
-  samples = 24,
-): string {
-  if (preset.mode === "constant") {
-    return channelsToCss(preset.constantChannels);
-  }
-  if (preset.keyframes.length === 0) {
-    return channelsToCss(ZERO_CHANNELS);
-  }
-  if (preset.keyframes.length === 1) {
-    return channelsToCss(preset.keyframes[0]!.channels);
-  }
+export function presetOrbBackground(preset: DayPreset): string {
+  const n = 48;
   const stops: string[] = [];
-  for (let i = 0; i <= samples; i++) {
-    const mins = Math.round((i / samples) * 1439);
-    const pct = ((i / samples) * 100).toFixed(2);
-    stops.push(`${channelsToCss(interpolateAt(preset, mins))} ${pct}%`);
+  const base = preset.mode === "constant" ? naturalTone(preset.constantChannels) : null;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    let color: Hsl;
+    if (base) {
+      // A fixed mix has no day curve; drift the hue and depth gently around the dial.
+      const w = Math.cos(t * Math.PI * 2);
+      color = { h: base.h - 12 * (1 - w) / 2, s: base.s, l: base.l - 0.1 * (1 - w) / 2 };
+    } else {
+      color = naturalTone(interpolateAt(preset, Math.round(t * 1439)));
+    }
+    stops.push(`${hslCss(color)} ${(t * 360).toFixed(1)}deg`);
   }
-  return `linear-gradient(90deg, ${stops.join(", ")})`;
+  return `conic-gradient(from 180deg, ${stops.join(", ")})`;
 }
 
 /** Load committed user presets only (never builtins). */

@@ -9,14 +9,20 @@ const CHECKLIST_BRIDGE = [
   "Keep the lamp close to the computer running the bridge. A PC adapter reaches it from about 30 cm.",
 ];
 
+/** True when the person dismissed the browser's device chooser; retrying would only nag them. */
+export function isUserCancel(message: string | null): boolean {
+  const m = (message ?? "").toLowerCase();
+  return m.includes("cancel") || m.includes("user denied");
+}
+
 /** Turns a raw failure into something the person can act on. */
 export function explainError(message: string): string {
   const m = message.toLowerCase();
+  if (isUserCancel(message)) {
+    return "No lamp was selected. Click Connect and pick the lamp named B3.0-…";
+  }
   if (m.includes("not found") || m.includes("no devices") || m.includes("notfound")) {
     return "No lamp found. Close the official app, power-cycle the lamp and move it closer.";
-  }
-  if (m.includes("cancel") || m.includes("user denied")) {
-    return "No lamp was selected. Click Connect and pick the lamp named B3.0-…";
   }
   if (m.includes("gatt") || m.includes("network error") || m.includes("timed out")) {
     return "The lamp did not answer. It may be connected to another device, or too far away.";

@@ -8,13 +8,16 @@ import {
 import { ChannelSlider } from "@/components/ChannelSlider";
 import { DayTimeline } from "@/components/DayTimeline";
 import { PresetsPanel } from "@/components/PresetsPanel";
-import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import { useBridge } from "@/hooks/useBridge";
 import { useLamp } from "@/hooks/useLamp";
+import { useConnectRetry } from "@/hooks/useConnectRetry";
+import { Bluetooth, BluetoothConnected, BluetoothOff } from "lucide-react";
+import { IconButton } from "@/components/ui/icon-button";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import { ConnectGuide, explainError } from "@/components/ConnectGuide";
 import { LampControls } from "@/components/LampControls";
-import { channelsToCss, mixLuma, type Channels } from "@/lib/bridge";
+import { channelsToCss, type Channels } from "@/lib/bridge";
 import {
   BUILTIN_PRESETS,
   clampMinutes,
@@ -82,6 +85,20 @@ export default function App() {
   const [composeIntentId, setComposeIntentId] = useState<string | null>(null);
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
+  const [rememberLamp, setRememberLamp] = useState(
+    () => localStorage.getItem("aqualamp.rememberLamp") !== "0",
+  );
+  const retry = useConnectRetry({
+    state: bridge.state,
+    error: bridge.error,
+    connect: () => bridge.connect({ remember: rememberLamp }),
+  });
+  const startConnect = retry.start;
+  const handleRememberChange = (next: boolean) => {
+    setRememberLamp(next);
+    localStorage.setItem("aqualamp.rememberLamp", next ? "1" : "0");
+    if (!next) bridge.forgetDevice();
+  };
   const isComposing =
     composeIntentId !== null && composeIntentId === selectedPresetId;
   const isPlayback = !isComposing;
@@ -528,10 +545,6 @@ export default function App() {
   })();
 
   const mix = channelsToCss(local);
-  /** Soft wash — tracks brightness; stay under ~0.28 so UI stays readable. */
-  const washStrength = connected
-    ? (0.1 + mixLuma(local) * 0.16).toFixed(3)
-    : "0";
   const nextChip =
     selectedPreset && selectedPreset.mode === "schedule"
       ? describeNextEvent(
@@ -540,6 +553,27 @@ export default function App() {
         )
       : null;
 
+  const mockTag = bridge.mock ? " (mock)" : "";
+  const connectLabel =
+    bridge.state === "connected"
+      ? `Connected${mockTag}. Select to disconnect`
+      : busy
+        ? `Connecting${mockTag}. Select to cancel`
+        : bridge.state === "error"
+          ? "Connection failed. Select to retry"
+          : "Disconnected. Select to connect";
+  const ConnectIcon =
+    bridge.state === "connected"
+      ? BluetoothConnected
+      : bridge.state === "disconnected"
+        ? BluetoothOff
+        : Bluetooth;
+  const onConnectButton = () => {
+    if (bridge.state === "connected") bridge.disconnect();
+    else if (busy || retry.retrying) retry.stop();
+    else startConnect();
+  };
+
   return (
     <div
       className="app-shell"
@@ -547,39 +581,31 @@ export default function App() {
         connected
           ? ({
               ["--mix" as string]: mix,
-              ["--mix-strength" as string]: washStrength,
             } as CSSProperties)
           : undefined
       }
     >
-      <div className="app-bg" aria-hidden>
-        <div className="caustics" />
-        <div className="depth-glow" />
-        {connected ? <div className="mix-wash" /> : null}
-      </div>
-
-      <header className="relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
+      <header className="relative z-40 flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
         <div className="min-w-0 flex-1">
           {connected ? (
             <p className="truncate text-sm text-teal-100/60">{sliderHint}</p>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {connected && nextChip ? (
             <span className="hidden max-w-[14rem] truncate rounded-full border border-teal-300/20 bg-teal-950/40 px-2 py-0.5 font-mono text-[10px] tracking-wide text-teal-100/75 sm:inline-block">
               {nextChip}
             </span>
           ) : null}
-          <StatusChip state={bridge.state} mock={bridge.mock} />
-          {connected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => bridge.disconnect()}
-            >
-              Disconnect
-            </Button>
-          ) : null}
+          <IconButton
+            label={connectLabel}
+            data-status={bridge.state}
+            disabled={bridge.state === "disconnected" && !bridge.socketOpen}
+            onClick={onConnectButton}
+          >
+            <ConnectIcon aria-hidden />
+          </IconButton>
+          <SettingsMenu />
         </div>
       </header>
 
@@ -598,23 +624,46 @@ export default function App() {
                 size="lg"
                 className="min-w-[12rem]"
                 disabled={!bridge.socketOpen || busy}
-                onClick={() => bridge.connect()}
+                onClick={startConnect}
               >
                 {busy ? "Connecting…" : "Connect"}
               </Button>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-teal-100/70">
+                <input
+                  type="checkbox"
+                  checked={rememberLamp}
+                  onChange={(e) => handleRememberChange(e.target.checked)}
+                  className="accent-teal-300"
+                />
+                Remember this lamp
+              </label>
               {(bridge.bridgeError || bridge.error) && (
                 <p className="max-w-sm text-sm text-rose-200/90">
                   {explainError(bridge.error ?? bridge.bridgeError ?? "")}
-                  {bridge.error && (
-                    <button
-                      type="button"
-                      className="ml-2 underline decoration-rose-200/50 underline-offset-2"
-                      onClick={() => bridge.connect()}
-                    >
-                      Retry
-                    </button>
-                  )}
                 </p>
+              )}
+              {retry.retrying && (
+                <p className="max-w-sm text-sm text-teal-100/70" role="status">
+                  {busy
+                    ? `Attempt ${retry.attempt} of ${retry.maxAttempts}…`
+                    : `Trying again shortly (attempt ${Math.min(retry.attempt + 1, retry.maxAttempts)} of ${retry.maxAttempts}).`}
+                  <button
+                    type="button"
+                    className="ml-2 underline decoration-teal-100/40 underline-offset-2"
+                    onClick={retry.stop}
+                  >
+                    Stop
+                  </button>
+                </p>
+              )}
+              {!retry.retrying && bridge.error && !busy && (
+                <button
+                  type="button"
+                  className="text-sm text-teal-100/70 underline decoration-teal-100/40 underline-offset-2"
+                  onClick={startConnect}
+                >
+                  Try again
+                </button>
               )}
               {!bridge.socketOpen && !bridge.bridgeError && (
                 <p className="text-sm text-teal-100/50">Reaching bridge…</p>

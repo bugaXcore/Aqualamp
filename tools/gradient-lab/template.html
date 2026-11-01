@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AquaLamp preset gradient lab</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 80px;
+    background: #061018; color: #d7f5ef;
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 650; }
+  .lede { margin: 0 0 28px; max-width: 70ch; color: #8fb5b0; }
+  .grid { display: grid; gap: 22px; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+  .card { background: #0a1a28; border: 1px solid rgba(94, 234, 212, 0.1); border-radius: 14px; padding: 16px; }
+  .card h2 { margin: 0; font-size: 15px; font-weight: 650; }
+  .card h2 span { color: #5eead4; margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .card p { margin: 4px 0 12px; color: #8fb5b0; font-size: 12.5px; }
+  .rows { display: flex; flex-direction: column; gap: 5px; }
+  .row {
+    position: relative; overflow: hidden; height: 46px;
+    border: 1px solid rgba(153, 246, 228, 0.1); border-radius: 9px;
+    background: rgba(8, 20, 32, 0.6);
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
+  }
+  .row .fx { position: absolute; top: 0; right: 0; bottom: 0; pointer-events: none; }
+  .row .name { position: relative; z-index: 1; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .row .kind { position: relative; z-index: 1; font-size: 10.5px; color: #8fb5b0; }
+  .card.current { border-color: rgba(255, 255, 255, 0.18); }
+</style>
+</head>
+<body>
+<h1>Preset row gradients</h1>
+<p class="lede">
+  Ten options for the colour wash on each preset row. In every option the wash starts at the far right edge
+  at full opacity and fades left with eased, hue-travelling stops (the non-boring-gradients approach: HSL
+  interpolation, eased stops, layered gradients). <b>Fixed</b> presets get a palette built around their single
+  mix; <b>gradual</b> presets are built from the colours of their actual day curve, brightest at the right.
+  Tell me the number you like.
+</p>
+<div class="grid" id="grid"></div>
+
+<script>/*__BUNDLE__*/</script>
+<script>
+const { presets, interpolateAt, channelsToCss } = window.AQ;
+
+/* ---------- colour helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+function parseRgb(css) { return css.match(/\d+/g).map(Number); }
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0; const l = (max + min) / 2;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return { h, s, l };
+}
+const luma = ([r, g, b]) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+const hsla = (c, a = 1) =>
+  `hsl(${(((c.h % 360) + 360) % 360).toFixed(1)} ${(clamp(c.s) * 100).toFixed(1)}% ${(clamp(c.l) * 100).toFixed(1)}% / ${clamp(a).toFixed(3)})`;
+function mixHsl(a, b, t) {
+  let dh = b.h - a.h;
+  if (dh > 180) dh -= 360; if (dh < -180) dh += 360;
+  return { h: a.h + dh * t, s: a.s + (b.s - a.s) * t, l: a.l + (b.l - a.l) * t };
+}
+const shift = (c, dh = 0, ds = 0, dl = 0) => ({ h: c.h + dh, s: clamp(c.s + ds), l: clamp(c.l + dl) });
+
+/* Previews describe hue, so lift every colour to a vivid, readable level. */
+function vivid(rgb) {
+  const c = rgbToHsl(rgb);
+  return { h: c.h, s: clamp(c.s * 1.2 + 0.2, 0.5, 0.95), l: 0.4 + 0.22 * luma(rgb) };
+}
+
+/* palette[0] is the right edge (peak colour); later entries fade toward the left. */
+function paletteFor(preset) {
+  if (preset.mode === "constant") {
+    const base = vivid(parseRgb(channelsToCss(preset.constantChannels)));
+    return [base, shift(base, 28, 0.04, 0.06), shift(base, -34, 0.0, -0.1)];
+  }
+  const lit = [];
+  for (let i = 0; i < 96; i++) {
+    const rgb = parseRgb(channelsToCss(interpolateAt(preset, Math.round((i / 96) * 1439))));
+    const y = luma(rgb);
+    if (y > 0.04) lit.push({ rgb, y });
+  }
+  if (!lit.length) return [vivid([30, 60, 80])];
+  lit.sort((a, b) => b.y - a.y);
+  const pick = (q) => vivid(lit[Math.min(lit.length - 1, Math.round(q * (lit.length - 1)))].rgb);
+  return [pick(0), pick(0.4), pick(0.75), pick(1)];
+}
+
+function pathColor(pal, u) { // u: 0 = right edge, 1 = far left
+  if (pal.length === 1) return pal[0];
+  const x = clamp(u) * (pal.length - 1), i = Math.min(pal.length - 2, Math.floor(x));
+  return mixHsl(pal[i], pal[i + 1], x - i);
+}
+
+/* ---------- easing ---------- */
+const smooth = (t) => t * t * (3 - 2 * t);
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInQuad = (t) => t * t;
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/* t runs 0 (left) .. 1 (right); returns a gradient stop list with eased alpha and hsl hue travel. */
+function stops(pal, alphaFn, { n = 14, peak = 1, dir = "right" } = {}) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n; // 1 = right edge
+    const c = pathColor(pal, 1 - t);
+    out.push(`${hsla(c, alphaFn(t) * peak)} ${(t * 100).toFixed(1)}%`);
+  }
+  return out;
+}
+const linear = (pal, alphaFn, o = {}) => `linear-gradient(90deg, ${stops(pal, alphaFn, o).join(", ")})`;
+
+function radial(c, shape, at, alphaFn, n = 8, peak = 1) {
+  const s = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n; // 0 = center
+    s.push(`${hsla(c, alphaFn(1 - t) * peak)} ${(t * 100).toFixed(1)}%`);
+  }
+  return `radial-gradient(${shape} at ${at}, ${s.join(", ")})`;
+}
+
+/* ---------- variants ---------- */
+const variants = [
+  {
+    name: "Current",
+    note: "What ships today: faint, linear RGB blend, masked.",
+    cls: "current",
+    fx(p) {
+      const day = p.mode === "schedule"
+        ? `linear-gradient(90deg, ${Array.from({ length: 25 }, (_, i) => `${channelsToCss(interpolateAt(p, Math.round((i / 24) * 1439)))} ${(i / 24 * 100).toFixed(1)}%`).join(", ")})`
+        : channelsToCss(p.constantChannels);
+      const mask = "linear-gradient(90deg, transparent 0%, transparent 18%, rgba(0,0,0,.25) 48%, rgba(0,0,0,.75) 72%, #000 100%)";
+      return { width: "30%", background: day, opacity: 0.34, filter: "saturate(.85)", maskImage: mask, webkitMaskImage: mask };
+    },
+  },
+  {
+    name: "Eased glow",
+    note: "One smooth wash. Eased opacity, colour drifts a little in HSL.",
+    fx: (p, pal) => ({ width: "62%", background: linear(pal.slice(0, 2), smooth) }),
+  },
+  {
+    name: "Hue drift",
+    note: "Hue travels across three colours, so the middle stays vivid instead of muddy.",
+    fx: (p, pal) => ({ width: "72%", background: linear(pal.slice(0, 3).map((c) => shift(c, 0, 0.1, 0)), (t) => Math.pow(smooth(t), 1.25)) }),
+  },
+  {
+    name: "Aurora",
+    note: "Three soft elliptical glows from the right edge, each a different hue.",
+    fx: (p, pal) => {
+      const a = pal[0], b = pal[1] ?? shift(a, 30), c = pal[2] ?? shift(a, -30);
+      return {
+        width: "82%",
+        background: [
+          radial(a, "ellipse 55% 130%", "100% 25%", easeOutCubic, 8),
+          radial(shift(b, 0, 0.1), "ellipse 60% 120%", "92% 105%", easeOutCubic, 8, 0.9),
+          radial(shift(c, 0, 0.1), "ellipse 45% 110%", "62% 55%", smooth, 8, 0.55),
+        ].join(", "),
+      };
+    },
+  },
+  {
+    name: "Mesh corner",
+    note: "Four blurred colour blobs, like a mesh gradient pinned to the right.",
+    fx: (p, pal) => {
+      const a = pal[0], b = pal[1] ?? shift(a, 40), c = pal[2] ?? shift(a, -40);
+      return {
+        width: "78%",
+        background: [
+          radial(shift(a, 0, 0.05, 0.04), "circle 90px", "100% 0%", smooth, 7),
+          radial(shift(b, 0, 0.08, 0.02), "circle 110px", "96% 100%", smooth, 7, 0.95),
+          radial(shift(c, 0, 0.08, 0), "circle 90px", "72% 45%", smooth, 7, 0.7),
+          radial(shift(a, 12, 0, 0.1), "circle 70px", "100% 55%", smooth, 7),
+        ].join(", "),
+      };
+    },
+  },
+  {
+    name: "Lightness ladder",
+    note: "Brighter at the right edge, deeper toward the left, so it reads like glowing depth.",
+    fx: (p, pal) => {
+      const hi = shift(pal[0], 0, 0.05, 0.1), mid = pal[1] ?? pal[0], lo = shift(pal[2] ?? pal[0], 0, 0.1, -0.14);
+      return { width: "70%", background: linear([hi, mid, lo], easeInOut, { n: 16 }) };
+    },
+  },
+  {
+    name: "Glass sheen",
+    note: "Eased wash plus a soft diagonal highlight and a bright top edge.",
+    fx: (p, pal) => ({
+      width: "62%",
+      background: [
+        "linear-gradient(115deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 38%)",
+        "linear-gradient(180deg, rgba(255,255,255,.14) 0, rgba(255,255,255,0) 18%)",
+        linear(pal.slice(0, 2), smooth),
+      ].join(", "),
+    }),
+  },
+  {
+    name: "Long ember",
+    note: "Reaches almost the whole row with a slow tail, so a wide gradual preset shows its journey.",
+    fx: (p, pal) => ({ width: "100%", background: linear(pal.slice(0, 3).map((c) => shift(c, 0, 0.12, 0.02)), (t) => Math.pow(t, 2.6) * 0.92 + (t > 0.97 ? (t - 0.97) / 0.03 * 0.08 : 0), { n: 20 }) }),
+  },
+  {
+    name: "Prism edge",
+    note: "A solid two-tone bar at the right edge, with a wide soft wash behind it.",
+    fx: (p, pal) => {
+      const a = pal[0], b = pal[1] ?? shift(a, 35);
+      return {
+        width: "58%",
+        background: [
+          `linear-gradient(270deg, ${hsla(a, 1)} 0 3px, ${hsla(shift(b, 0, 0.1, 0.05), 1)} 3px 6px, transparent 6px)`,
+          linear([a, b], smooth, { peak: 0.75 }),
+        ].join(", "),
+      };
+    },
+  },
+  {
+    name: "Angled sweep",
+    note: "Diagonal, so the colour feels like light raking across the row.",
+    fx: (p, pal) => {
+      const s = [];
+      for (let i = 0; i <= 14; i++) {
+        const t = i / 14; // 0 = right
+        s.push(`${hsla(pathColor(pal, t), smooth(1 - t))} ${(t * 100).toFixed(1)}%`);
+      }
+      return { width: "68%", background: `linear-gradient(250deg, ${s.join(", ")})` };
+    },
+  },
+  {
+    name: "Radial bloom",
+    note: "One big circular bloom centred on the right edge.",
+    fx: (p, pal) => {
+      const s = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12; // 0 = center
+        s.push(`${hsla(pathColor(pal, t), smooth(1 - t))} ${(t * 100).toFixed(1)}%`);
+      }
+      return { width: "90%", background: `radial-gradient(farthest-side circle at 100% 50%, ${s.join(", ")})` };
+    },
+  },
+];
+
+/* ---------- render ---------- */
+const grid = document.getElementById("grid");
+variants.forEach((v, i) => {
+  const card = document.createElement("section");
+  card.className = "card" + (v.cls ? " " + v.cls : "");
+  card.innerHTML = `<h2><span>${i === 0 ? "—" : i}</span>${v.name}</h2><p>${v.note}</p>`;
+  const rows = document.createElement("div");
+  rows.className = "rows";
+  for (const p of presets) {
+    const pal = paletteFor(p);
+    const row = document.createElement("div");
+    row.className = "row";
+    const fx = document.createElement("div");
+    fx.className = "fx";
+    const s = v.fx(p, pal);
+    fx.style.width = s.width;
+    fx.style.background = s.background;
+    if (s.opacity != null) fx.style.opacity = s.opacity;
+    if (s.filter) fx.style.filter = s.filter;
+    if (s.maskImage) { fx.style.maskImage = s.maskImage; fx.style.webkitMaskImage = s.maskImage; }
+    row.appendChild(fx);
+    const name = document.createElement("span"); name.className = "name"; name.textContent = p.name;
+    const kind = document.createElement("span"); kind.className = "kind";
+    kind.textContent = p.mode === "schedule" ? "gradual" : "fixed";
+    row.append(name, kind);
+    rows.appendChild(row);
+  }
+  card.appendChild(rows);
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

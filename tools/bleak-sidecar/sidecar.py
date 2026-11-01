@@ -46,7 +46,7 @@ class Sidecar:
 
     async def connect(self, address):
         if self.client and self.client.is_connected:
-            return
+            return self.client.address
         device = await self.find(address)
 
         def on_disconnect(_client):
@@ -54,6 +54,7 @@ class Sidecar:
 
         self.client = BleakClient(device, disconnected_callback=on_disconnect)
         await self.client.connect()
+        return device.address
 
     async def send(self, hex_str):
         data = bytes.fromhex(hex_str)
@@ -84,15 +85,16 @@ async def main():
             continue
         try:
             cmd = msg.get("cmd")
+            reply = {"id": msg.get("id"), "ok": True}
             if cmd == "connect":
-                await sidecar.connect(msg.get("address"))
+                reply["address"] = await sidecar.connect(msg.get("address"))
             elif cmd == "send":
                 await sidecar.send(msg["hex"])
             elif cmd == "disconnect":
                 await sidecar.disconnect()
             else:
                 raise ValueError("Unknown command: %s" % cmd)
-            emit({"id": msg.get("id"), "ok": True})
+            emit(reply)
         except Exception as exc:  # report every failure to the host
             emit({"id": msg.get("id"), "ok": False, "error": str(exc) or type(exc).__name__})
     await sidecar.disconnect()

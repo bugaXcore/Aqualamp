@@ -29,6 +29,16 @@ describe("SidecarTransport", () => {
     assert.deepEqual(states, ["scanning", "connected"]);
   });
 
+  it("reports the address of the lamp it connected to", async () => {
+    const { transport } = make();
+    await transport.connect();
+    assert.equal(transport.connectedAddress, "AA:BB:CC:DD:EE:FF");
+    transport.close();
+    const { transport: pinned } = make("C8:47:80:00:00:01");
+    await pinned.connect("11:22:33:44:55:66");
+    assert.equal(pinned.connectedAddress, "11:22:33:44:55:66");
+  });
+
   it("rejects a connect the sidecar refuses", async () => {
     const { transport } = make("bad");
     await assert.rejects(transport.connect(), /Lamp not found/);
