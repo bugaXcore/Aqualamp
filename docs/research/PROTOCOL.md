@@ -179,3 +179,19 @@ UV is not calibrated (the camera cannot see it). Reproduce with `tools/hwtest/ca
 ### Timing after setup frames (Node sidecar + webcam)
 
 A colour frame sent right after the always-on window frame (`FE F9 00 00 24 00 00 00`) was silently dropped: red 40 never lit, while a later blue frame did. Leaving 500 ms after every setup frame, including the last, fixed it. `Lamp` now waits `frameGapMs` (default 500) after each frame of a command. Verified through the bleak sidecar: red lit, eased to blue, then power off (clock, `FD F1`, window, then colour).
+
+## Overnight test: advanced slots and fade codes (2026-11-01)
+
+Programmed over BLE, then BLE disconnected and the lamp ran alone while the webcam sampled the wall (`tools/hwtest/night.py`).
+
+Advanced slots (mode 2), clock base 04:01:
+- All five slots work, not only slot 1. Each window starts and ends within about 5 s of its programmed minute.
+- Colour changes ease over about 15 s, including adjacent slots (red -> green -> blue) and at window ends.
+- A gap between slots goes dark (about 2 s ease to off).
+- Overlap: when slot 4 (11-14) overlaps slot 5 (13-17), slot 4 wins until it ends at 14, then slot 5 shows until 17. The lower slot number has priority.
+
+Fade codes (`RR` in the timer frame), 12 min observed each:
+- Codes 2, 3 and 4: output sits at a flat floor (about 52 on the camera scale) for the whole 12 min. They look identical in that span, so any ramp is slower than 12 min.
+- Code 5: jumps straight to a bright level (about 276) and drifts down slowly (about 276 -> 268 in 11 min).
+- Code 1: ramps in steps, about 53 -> 126 -> 185 -> 234 -> 268, reaching full in about 27 min, then flat.
+- The "30 minutes per step" mapping is therefore not confirmed. Only code 1 shows a clear ramp. Codes 2-4 would need a longer observation.
