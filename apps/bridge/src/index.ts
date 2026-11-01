@@ -11,6 +11,7 @@ import {
   type Channels,
   type ConnectionState,
   type LampSnapshot,
+  type ScheduleWindow,
 } from "@aqualamp/controller";
 
 loadEnvFile();
@@ -24,6 +25,7 @@ type ClientMessage =
   | { type: "power"; on: boolean }
   | { type: "setMode"; mode: 1 | 2 }
   | { type: "setTimer"; sunrise: Time; sunset: Time; fade?: number }
+  | { type: "setSchedule"; windows: ScheduleWindow[] }
   | { type: "setCalibrated"; on: boolean }
   | { type: "getStatus" };
 
@@ -49,7 +51,10 @@ const transport = mock
   : new SidecarTransport({
       address: configuredAddress && !configuredAddress.toUpperCase().includes("X") ? configuredAddress : undefined,
     });
-const lamp = new Lamp(transport, { calibrated: flag("AQUALAMP_CALIBRATED", false) });
+const lamp = new Lamp(transport, {
+  calibrated: flag("AQUALAMP_CALIBRATED", false),
+  reconnectAttempts: Number(process.env.AQUALAMP_RECONNECT_ATTEMPTS ?? 3),
+});
 
 const status = (s: LampSnapshot = lamp.current): Status => ({
   state: s.state,
@@ -128,6 +133,10 @@ wss.on("connection", (ws) => {
           break;
         case "setTimer":
           await lamp.setTimer(msg.sunrise, msg.sunset, msg.fade ?? 0);
+          break;
+        case "setSchedule":
+          if (!Array.isArray(msg.windows)) throw new Error("setSchedule requires a windows array");
+          await lamp.setSchedule(msg.windows);
           break;
         case "setCalibrated":
           lamp.setCalibrated(Boolean(msg.on));

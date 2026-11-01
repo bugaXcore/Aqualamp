@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { compileSchedule } from "@aqualamp/core";
 import { Button } from "@/components/ui/button";
 import type { LampControlsApi } from "@/lib/bridge";
+import { interpolateAt, isFreeManualPreset, type DayPreset } from "@/lib/presets";
 
 const FADES = ["No fade", "30 min", "1 h", "1 h 30", "2 h", "2 h 30"];
 
 function toMinutes(value: string): number {
   const [h, m] = value.split(":").map(Number);
   return h * 60 + m;
+}
+
+function clock(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
 function toTime(value: string) {
@@ -17,11 +23,16 @@ function toTime(value: string) {
 const fieldClass =
   "h-9 rounded-lg border border-teal-200/25 bg-white/5 px-2 text-sm text-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70";
 
-export function LampControls({ lamp }: { lamp: LampControlsApi }) {
+export function LampControls({ lamp, preset }: { lamp: LampControlsApi; preset?: DayPreset | null }) {
   const [sunrise, setSunrise] = useState("08:00");
   const [sunset, setSunset] = useState("20:00");
   const [fade, setFade] = useState(0);
   const timerInvalid = toMinutes(sunset) <= toMinutes(sunrise);
+  const runnable = Boolean(preset) && !isFreeManualPreset(preset!);
+  const windows = useMemo(
+    () => (runnable && preset ? compileSchedule((m) => interpolateAt(preset, m)) : []),
+    [runnable, preset],
+  );
 
   return (
     <details className="rounded-2xl border border-teal-200/15 bg-white/[0.03] px-4 py-3">
@@ -120,6 +131,28 @@ export function LampControls({ lamp }: { lamp: LampControlsApi }) {
             The lamp is dark outside this window. Connecting resets it to all day so your colours are visible.
           </p>
         </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-2 border-t border-teal-200/10 pt-4">
+        <p className="text-sm font-medium text-teal-100/90">Run a day preset on the lamp</p>
+        {runnable && preset ? (
+          <>
+            <p className="text-xs text-teal-100/70">
+              {preset.name}: {windows.map((w) => `${clock(w.startMin)}–${clock(w.endMin)}`).join(", ")}
+            </p>
+            <div>
+              <Button size="sm" variant="outline" onClick={() => lamp.setSchedule(windows)}>
+                Send to lamp
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-teal-100/55">Pick a day preset below to send it to the lamp.</p>
+        )}
+        <p className="text-xs text-teal-100/55">
+          The lamp has five schedule slots and holds one colour in each, so a smooth day becomes up to five steps.
+          Once sent it runs by itself, even with this app closed.
+        </p>
       </div>
 
       <label className="mt-5 flex items-start gap-2 text-sm text-teal-100/80">

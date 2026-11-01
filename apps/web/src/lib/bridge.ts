@@ -31,6 +31,8 @@ export type BridgeState = {
 
 /** Lamp-side controls exposed by both transports (bridge and Web Bluetooth). */
 export type LampTime = { hours: number; minutes: number };
+/** One window of the lamp's own schedule (minutes from midnight; 1440 = 24:00). */
+export type ScheduleWindow = { startMin: number; endMin: number; channels: Channels };
 export type LampControlsApi = {
   mode: 1 | 2;
   calibrated: boolean;
@@ -38,6 +40,7 @@ export type LampControlsApi = {
   setMode: (mode: 1 | 2) => void;
   setTimer: (sunrise: LampTime, sunset: LampTime, fade: number) => void;
   setCalibrated: (on: boolean) => void;
+  setSchedule: (windows: ScheduleWindow[]) => void;
 };
 
 export type BridgeChannels = {

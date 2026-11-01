@@ -638,8 +638,11 @@ export default function App() {
                 />
               ))}
             </div>
+            <p className="-mt-3 text-[11px] text-teal-100/45">
+              The lamp eases to each new colour over about 15 seconds, so changes look delayed.
+            </p>
 
-            <LampControls lamp={bridge} />
+            <LampControls lamp={bridge} preset={selectedPreset} />
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
               <PresetsPanel

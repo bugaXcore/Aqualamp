@@ -5,6 +5,7 @@ import {
   type Channels,
   type ConnectionState,
   type LampTime,
+  type ScheduleWindow,
   type ServerMessage,
 } from "@/lib/bridge";
 
@@ -119,5 +120,6 @@ export function useBridge(url = defaultBridgeUrl()) {
     setTimer: (sunrise: LampTime, sunset: LampTime, fade: number) =>
       send({ type: "setTimer", sunrise, sunset, fade }),
     setCalibrated: (on: boolean) => send({ type: "setCalibrated", on }),
+    setSchedule: (windows: ScheduleWindow[]) => send({ type: "setSchedule", windows }),
   };
 }

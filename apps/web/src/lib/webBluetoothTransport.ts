@@ -9,7 +9,7 @@ type BtServer = {
   connected: boolean;
   getPrimaryService(uuid: string): Promise<{ getCharacteristic(uuid: string): Promise<BtCharacteristic> }>;
 };
-type BtDevice = EventTarget & { id: string; name?: string; gatt?: { connect(): Promise<BtServer>; disconnect(): void } };
+type BtDevice = EventTarget & { id: string; name?: string; gatt?: { connected: boolean; connect(): Promise<BtServer>; disconnect(): void } };
 type Bluetooth = { requestDevice(options: unknown): Promise<BtDevice> };
 
 export function webBluetoothAvailable(): boolean {
@@ -49,7 +49,7 @@ export class WebBluetoothTransport implements LampTransport {
   }
 
   async disconnect(): Promise<void> {
-    this.expectingDisconnect = true;
+    this.expectingDisconnect = this.device?.gatt?.connected === true;
     this.device?.gatt?.disconnect();
     this.characteristic = null;
     this.emit("disconnected");
