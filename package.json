@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @aqualamp/controller && npm run build -w @aqualamp/cli && npm run build -w @aqualamp/bridge && npm run build -w @aqualamp/web",
-    "test": "npm run test -w @aqualamp/controller",
+    "test": "npm run test -w @aqualamp/controller && npm run test -w @aqualamp/bridge",
     "cli": "tsx apps/cli/src/index.ts",
     "bridge": "tsx apps/bridge/src/index.ts",
     "web": "npm run dev -w @aqualamp/web",

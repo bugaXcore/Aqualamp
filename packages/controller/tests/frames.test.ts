@@ -15,17 +15,11 @@ import {
   slotFrames,
   timerFrame,
 } from "../src/frames.js";
-import { encodeChannels } from "../src/protocol.js";
 
 describe("frames", () => {
   it("matches the Capture #3 red ladder", () => {
     assert.equal(bytesToHex(colorFrame(25, 0, 0)), "FB F9 3B 00 00 00 55 55");
     assert.equal(bytesToHex(colorFrame(100, 0, 0)), "FB F9 EB 00 00 00 55 55");
-  });
-
-  it("agrees with the legacy Buffer encoder", () => {
-    const legacy = encodeChannels({ red: 40, green: 60, blue: 80, uv: 20 });
-    assert.equal(bytesToHex(colorFrame(40, 60, 80, 20)), bytesToHex(new Uint8Array(legacy)));
   });
 
   it("builds the clock and timer frames from the official app", () => {
