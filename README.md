@@ -42,6 +42,10 @@ npm run web
 
 Open `http://127.0.0.1:<port>/?transport=ble`, click Connect and pick the lamp in Chrome's chooser. No bridge or Python is needed.
 
+**Phone (Chrome on Android)**
+
+Pushes to `main` deploy the web app to GitHub Pages (`.github/workflows/pages.yml`; enable it once under Settings → Pages → Source: GitHub Actions). Open `https://<user>.github.io/Aqualamp/` on the phone: any page not served from localhost uses Web Bluetooth automatically (`?transport=bridge` or `?transport=ble` forces one). Turn on Location, allow Nearby devices, close the official app, then tap Connect. Use Chrome's menu → Install app to add it to the home screen. Without Pages, `adb reverse tcp:5173 tcp:5173` and `http://localhost:5173/?transport=ble` also works.
+
 **CLI**
 
 ```powershell

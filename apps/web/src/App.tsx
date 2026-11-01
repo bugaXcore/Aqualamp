@@ -62,9 +62,15 @@ const CHANNEL_META: {
   { key: "uv", label: "UV", accent: "#c084fc" },
 ];
 
-// Fixed for the page load: `?transport=ble` talks to the lamp directly over Web Bluetooth.
-const useTransport =
-  new URLSearchParams(window.location.search).get("transport") === "ble" ? useLamp : useBridge;
+// Fixed for the page load. `?transport=ble` or `?transport=bridge` forces one; otherwise the
+// PC dev page uses the bridge and any hosted page (phone, installed app) uses Web Bluetooth.
+const useTransport = (() => {
+  const forced = new URLSearchParams(window.location.search).get("transport");
+  if (forced === "ble") return useLamp;
+  if (forced === "bridge") return useBridge;
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+  return local ? useBridge : useLamp;
+})();
 
 export default function App() {
   const bridge = useTransport();
