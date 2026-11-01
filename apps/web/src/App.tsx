@@ -6,6 +6,8 @@ import {
   type CSSProperties,
 } from "react";
 import { ChannelSlider } from "@/components/ChannelSlider";
+import { AsciiBackground } from "@/components/AsciiBackground";
+import { AsciiTunePanel } from "@/components/AsciiTunePanel";
 import { DayTimeline } from "@/components/DayTimeline";
 import { PresetsPanel } from "@/components/PresetsPanel";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import { useConnectRetry } from "@/hooks/useConnectRetry";
 import { Bluetooth, BluetoothConnected, BluetoothOff } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { SettingsMenu } from "@/components/SettingsMenu";
+import { useKoiControls } from "@/lib/koiControls";
 import { ConnectGuide, explainError } from "@/components/ConnectGuide";
 import { LampControls } from "@/components/LampControls";
 import { channelsToCss, type Channels } from "@/lib/bridge";
@@ -46,6 +49,8 @@ import {
   type SolarApplyInput,
 } from "@/lib/ramps";
 
+const PLAYING_KEY = "aqualamp.playingPreset";
+
 function nowMinutes(): number {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();
@@ -74,6 +79,7 @@ const useTransport = (() => {
 
 export default function App() {
   const bridge = useTransport();
+  const [koiControls] = useKoiControls();
   const [local, setLocal] = useState<Channels>({ ...FREE_MANUAL_CHANNELS });
   /** Committed user presets (localStorage). */
   const [savedUserPresets, setSavedUserPresets] = useState<DayPreset[]>([]);
@@ -89,6 +95,14 @@ export default function App() {
   const [playheadMinutes, setPlayheadMinutes] = useState(12 * 60);
   /** Non-null = composing that preset id (intent from New / Edit / Duplicate). */
   const [composeIntentId, setComposeIntentId] = useState<string | null>(null);
+  /** Preset the app is sending to the lamp. Selection alone never sends. */
+  const [playingId, setPlayingId] = useState<string | null>(() =>
+    localStorage.getItem(PLAYING_KEY),
+  );
+  /** User dragged the preview playhead; stops it following the clock. */
+  const [scrubbed, setScrubbed] = useState(false);
+  /** Net "offset all keys" applied to the open draft, minutes wrapped to -720..720. */
+  const [shiftMinutes, setShiftMinutes] = useState(0);
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
   const [rememberLamp, setRememberLamp] = useState(
@@ -114,11 +128,14 @@ export default function App() {
   const enterCompose = (id: string) => {
     if (isBuiltinPreset(id)) return;
     setComposeIntentId(id);
+    setShiftMinutes(0);
     setSelectedPresetId(id);
   };
 
   const exitCompose = () => {
     setComposeIntentId(null);
+    setShiftMinutes(0);
+    setScrubbed(false);
     setSelectedKeyframeId(null);
     const mins = nowMinutes();
     setPlayheadMinutes(mins);
@@ -168,6 +185,49 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (playingId && playingId !== FREE_MANUAL_PRESET_ID) {
+      localStorage.setItem(PLAYING_KEY, playingId);
+    } else {
+      localStorage.removeItem(PLAYING_KEY);
+    }
+  }, [playingId]);
+
+  /** The lamp always plays the saved version, never an open draft. */
+  const playingPreset = useMemo(() => {
+    if (!playingId || playingId === FREE_MANUAL_PRESET_ID) return null;
+    return (
+      [...BUILTIN_PRESETS, ...savedUserPresets].find(
+        (p) => p.id === playingId,
+      ) ?? null
+    );
+  }, [playingId, savedUserPresets]);
+
+  const neverSavedIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const id of Object.keys(drafts)) {
+      if (!isBuiltinPreset(id) && !savedUserPresets.some((p) => p.id === id)) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }, [drafts, savedUserPresets]);
+
+  useEffect(() => {
+    if (!connected || !playingPreset) return;
+    let last = "";
+    const send = () => {
+      const channels = interpolateAt(playingPreset, nowMinutes());
+      const key = JSON.stringify(channels);
+      if (key === last) return;
+      last = key;
+      setChannelsRef.current(channels);
+    };
+    send();
+    const id = window.setInterval(send, 1000);
+    return () => window.clearInterval(id);
+  }, [connected, playingPreset]);
+
+  useEffect(() => {
     if (isFreeManual) return;
     if (isPlayback) return;
     setLocal(bridge.channels);
@@ -176,22 +236,20 @@ export default function App() {
   useEffect(() => {
     if (!isPlayback) return;
     const tick = () => {
-      setPlayheadMinutes(nowMinutes());
+      if (!scrubbed) setPlayheadMinutes(nowMinutes());
       setSelectedKeyframeId(null);
     };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [isPlayback]);
+  }, [isPlayback, scrubbed]);
 
   useEffect(() => {
     if (!selectedPreset) return;
     /** Sliders mode is user-driven — never overwrite local from playhead ticks. */
     if (isFreeManualPreset(selectedPreset)) return;
     if (isPlayback) {
-      const channels = interpolateAt(selectedPreset, playheadMinutes);
-      setLocal(channels);
-      setChannelsRef.current(channels);
+      setLocal(interpolateAt(selectedPreset, playheadMinutes));
       return;
     }
     if (selectedPreset.mode === "constant") {
@@ -214,16 +272,23 @@ export default function App() {
     compositionLocked,
   ]);
 
-  /** Push Sliders mode starter once connected so mock lamp matches open state. */
-  useEffect(() => {
-    if (!connected || !isFreeManual) return;
-    setChannelsRef.current(local);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on connect+sliders mode
-  }, [connected, isFreeManual]);
-
   const pushToBridge = (channels: Channels) => {
     setLocal(channels);
-    bridge.setChannels(channels);
+    // Only Sliders mode drives the lamp directly; every preset edit is local until played.
+    if (isFreeManual) {
+      setPlayingId(FREE_MANUAL_PRESET_ID);
+      bridge.setChannels(channels);
+    }
+  };
+
+  const handlePlay = (id: string) => {
+    if (id === FREE_MANUAL_PRESET_ID) {
+      setPlayingId(id);
+      bridge.setChannels(local);
+      return;
+    }
+    if (!BUILTIN_PRESETS.some((p) => p.id === id) && !savedUserPresets.some((p) => p.id === id)) return;
+    setPlayingId(id);
   };
 
   const patchPreset = (id: string, patch: (p: DayPreset) => DayPreset) => {
@@ -335,11 +400,6 @@ export default function App() {
       return next;
     });
     exitCompose();
-    if (committed.mode === "constant") {
-      pushToBridge({ ...committed.constantChannels });
-    } else {
-      pushToBridge(interpolateAt(committed, nowMinutes()));
-    }
   };
 
   const handleDiscard = () => {
@@ -358,22 +418,12 @@ export default function App() {
     }
     if (wasNew) {
       setSelectedPresetId(null);
-      exitCompose();
-      return;
     }
-    const saved = savedUserPresets.find((p) => p.id === selectedPresetId);
     exitCompose();
-    if (saved) {
-      if (saved.mode === "constant") {
-        pushToBridge({ ...saved.constantChannels });
-      } else {
-        pushToBridge(interpolateAt(saved, nowMinutes()));
-      }
-    }
   };
 
   const handleDeletePreset = (id: string) => {
-    if (isBuiltinPreset(id)) return;
+    if (isBuiltinPreset(id) || id === playingId) return;
     setSavedUserPresets((prev) => {
       const next = prev.filter((p) => p.id !== id);
       saveUserPresets(next);
@@ -398,22 +448,58 @@ export default function App() {
     setDrafts((prev) => ({ ...prev, [copy.id]: copy }));
     setSelectedKeyframeId(null);
     enterCompose(copy.id);
-    if (copy.mode === "constant") {
-      pushToBridge({ ...copy.constantChannels });
-    } else {
-      pushToBridge(interpolateAt(copy, playheadMinutes));
-    }
+    setLocal(
+      copy.mode === "constant"
+        ? { ...copy.constantChannels }
+        : interpolateAt(copy, playheadMinutes),
+    );
   };
 
   const handleRequestCompose = (id: string) => {
     const source = displayPresets.find((p) => p.id === id);
     if (!source || isBuiltinPreset(source)) return;
     enterCompose(id);
-    if (source.mode === "constant") {
-      pushToBridge({ ...source.constantChannels });
-    } else {
-      pushToBridge(interpolateAt(source, playheadMinutes));
-    }
+    setLocal(
+      source.mode === "constant"
+        ? { ...source.constantChannels }
+        : interpolateAt(source, playheadMinutes),
+    );
+  };
+
+  const handleShiftAll = (delta: number) => {
+    if (isPlayback || compositionLocked || !selectedPreset) return;
+    if (selectedPreset.mode !== "schedule") return;
+    patchPreset(selectedPreset.id, (p) => ({
+      ...p,
+      keyframes: p.keyframes.map((k) => ({
+        ...k,
+        minutes: (((k.minutes + delta) % 1440) + 1440) % 1440,
+      })),
+    }));
+    setShiftMinutes((s) => {
+      const wrapped = (((s + delta) % 1440) + 1440) % 1440;
+      return wrapped > 720 ? wrapped - 1440 : wrapped;
+    });
+    setPlayheadMinutes((m) => (((m + delta) % 1440) + 1440) % 1440);
+  };
+
+  const handleResetToSaved = () => {
+    if (!selectedPresetId || !selectedIsCommitted) return;
+    const id = selectedPresetId;
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setShiftMinutes(0);
+    setSelectedKeyframeId(null);
+  };
+
+  const handleClearKeys = () => {
+    if (isPlayback || compositionLocked || !selectedPreset) return;
+    patchPreset(selectedPreset.id, (p) => ({ ...p, keyframes: [] }));
+    setSelectedKeyframeId(null);
+    setShiftMinutes(0);
   };
 
   const handleModeChange = (id: string, mode: PresetMode) => {
@@ -521,11 +607,16 @@ export default function App() {
     }
     if (isPlayback) {
       if (!selectedPreset) {
-        return "Playing — sliders locked · Sliders mode or New / Duplicate to compose.";
+        return "Nothing selected · tap a preset to preview it.";
       }
-      return selectedPreset.mode === "constant"
-        ? "Playing — constant levels · read-only telemetry."
-        : `Playing — ${minsToTime(playheadMinutes)} · clock CTI · read-only telemetry.`;
+      const onLamp = selectedPreset.id === playingId;
+      const when = scrubbed ? minsToTime(playheadMinutes) : "now";
+      if (onLamp) {
+        return scrubbed
+          ? `Playing on the lamp · previewing ${when} · tap the preset to return to now.`
+          : "Playing on the lamp.";
+      }
+      return `Previewing ${when} — not on the lamp · press play to send it.`;
     }
     if (!selectedPreset) return "Manual mix — no day preset selected.";
     if (compositionLocked) {
@@ -591,6 +682,8 @@ export default function App() {
           : undefined
       }
     >
+      <AsciiBackground />
+      {koiControls ? <AsciiTunePanel /> : null}
       <header className="relative z-40 flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
         <div className="min-w-0 flex-1">
           {connected ? (
@@ -710,22 +803,16 @@ export default function App() {
                 onSelect={(id) => {
                   if (composeIntentId && composeIntentId !== id) {
                     setComposeIntentId(null);
+                    setShiftMinutes(0);
                   }
                   setSelectedPresetId(id);
                   setSelectedKeyframeId(null);
-                  const p = displayPresets.find((x) => x.id === id);
-                  if (!p) return;
-                  if (p.mode === "constant") {
-                    pushToBridge({ ...p.constantChannels });
-                  } else {
-                    pushToBridge(
-                      interpolateAt(
-                        p,
-                        composeIntentId === id ? playheadMinutes : nowMinutes(),
-                      ),
-                    );
-                  }
+                  setScrubbed(false);
+                  if (composeIntentId !== id) setPlayheadMinutes(nowMinutes());
                 }}
+                playingId={playingId}
+                neverSavedIds={neverSavedIds}
+                onPlay={handlePlay}
                 onCreate={handleCreatePreset}
                 onRename={(id, name) =>
                   patchPreset(id, (p) => ({ ...p, name }))
@@ -747,15 +834,36 @@ export default function App() {
                 playheadMinutes={playheadMinutes}
                 composing={isComposing}
                 compositionLocked={compositionLocked}
+                shiftMinutes={shiftMinutes}
+                onShiftAll={handleShiftAll}
+                canReset={dirty && selectedIsCommitted}
+                onReset={handleResetToSaved}
+                onClearKeys={handleClearKeys}
+                onCurveChange={(curve) =>
+                  selectedPresetId &&
+                  patchPreset(selectedPresetId, (p) => ({
+                    ...p,
+                    curve: curve === "sharp" ? "sharp" : undefined,
+                  }))
+                }
+                onSnapChange={(snap) =>
+                  selectedPresetId &&
+                  patchPreset(selectedPresetId, (p) => ({ ...p, snap }))
+                }
+                onAir={
+                  selectedPresetId !== null &&
+                  selectedPresetId === playingId &&
+                  !scrubbed
+                }
                 descriptionEditable={
                   isComposing && Boolean(selectedPreset) && !compositionLocked
                 }
                 onScrub={(mins) => {
-                  if (isPlayback) return;
                   setPlayheadMinutes(mins);
                   setSelectedKeyframeId(null);
-                  if (selectedPreset) {
-                    pushToBridge(interpolateAt(selectedPreset, mins));
+                  if (isPlayback) setScrubbed(true);
+                  else if (selectedPreset) {
+                    setLocal(interpolateAt(selectedPreset, mins));
                   }
                 }}
                 onSelectKeyframe={(id) => {

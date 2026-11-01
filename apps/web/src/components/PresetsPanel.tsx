@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Lock, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import {
   isBuiltinPreset,
   isFreeManualPreset,
@@ -31,6 +31,11 @@ type Props = {
   onDiscard: () => void;
   onDuplicate: (id: string) => void;
   dirtyIds?: Set<string>;
+  /** Id of the preset currently sent to the lamp. */
+  playingId: string | null;
+  /** Drafts that were never saved cannot be played. */
+  neverSavedIds: Set<string>;
+  onPlay: (id: string) => void;
 };
 
 export function PresetsPanel({
@@ -50,6 +55,9 @@ export function PresetsPanel({
   onDiscard,
   onDuplicate,
   dirtyIds,
+  playingId,
+  neverSavedIds,
+  onPlay,
 }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -83,7 +91,7 @@ export function PresetsPanel({
           <p className="mt-1 text-xs text-teal-100/50">
             {composing
               ? "Composing draft · Save or Cancel when done."
-              : "Playing · New / Duplicate / Edit to compose."}
+              : "Tap to preview · press play to send to the lamp."}
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={onCreate}>
@@ -102,7 +110,15 @@ export function PresetsPanel({
           const showUserChrome =
             composing && active && !builtin && renamingId !== preset.id;
           const orbBg = presetOrbBackground(preset);
-
+          const isPlaying = preset.id === playingId;
+          const neverSaved = neverSavedIds.has(preset.id);
+          const playTitle = isPlaying
+            ? "Playing on the lamp"
+            : neverSaved
+              ? "Save this preset to play it"
+              : rowDirty
+                ? "Play the saved version"
+                : "Play on the lamp";
           return (
             <li key={preset.id}>
               <div
@@ -236,8 +252,13 @@ export function PresetsPanel({
                             </button>
                             <button
                               type="button"
-                              title="Delete"
-                              className="rounded-md p-1 text-teal-100/50 transition hover:bg-rose-400/10 hover:text-rose-300"
+                              title={
+                                isPlaying
+                                  ? "Switch to another preset before deleting"
+                                  : "Delete"
+                              }
+                              disabled={isPlaying}
+                              className="rounded-md p-1 text-teal-100/50 transition hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-teal-100/50"
                               onClick={() => onDelete(preset.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -245,6 +266,34 @@ export function PresetsPanel({
                           </>
                         )}
                       </div>
+                    )}
+                    {renamingId !== preset.id && (
+                      <button
+                        type="button"
+                        title={playTitle}
+                        aria-label={`${isPlaying ? "Playing" : "Play"} ${preset.name}`}
+                        aria-pressed={isPlaying}
+                        disabled={neverSaved}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isPlaying) onPlay(preset.id);
+                        }}
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition",
+                          isPlaying
+                            ? "border-teal-300/60 bg-teal-300 text-depth-950"
+                            : "border-teal-200/20 text-teal-100/70 hover:border-teal-300/50 hover:bg-teal-400/15 hover:text-teal-50",
+                          neverSaved && "cursor-not-allowed opacity-35",
+                        )}
+                      >
+                        <Play
+                          className={cn(
+                            "h-3.5 w-3.5 translate-x-px",
+                            isPlaying && "fill-current",
+                          )}
+                          aria-hidden
+                        />
+                      </button>
                     )}
                   </div>
 

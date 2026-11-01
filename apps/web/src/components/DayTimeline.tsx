@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link2, Plus, Trash2 } from "lucide-react";
 import { ChannelSlider } from "@/components/ChannelSlider";
 import { SolarAssistStrip } from "@/components/SolarAssistStrip";
+import { TimelineMenu } from "@/components/TimelineMenu";
 import type { Channels } from "@/lib/bridge";
 import {
   clampMinutes,
@@ -11,6 +12,8 @@ import {
   timeToMins,
   type DayPreset,
   type Keyframe,
+  type CurveStyle,
+  type SnapMode,
   type RampKind,
 } from "@/lib/presets";
 import { listLinkedRamps, type SolarApplyInput } from "@/lib/ramps";
@@ -53,6 +56,8 @@ const CHANNEL_META: { key: keyof Channels; label: string; accent: string }[] = [
   { key: "uv", label: "UV", accent: CHANNEL_STROKE.uv },
 ];
 
+const HIDDEN_CURVES_KEY = "aqualamp.timeline.hiddenCurves";
+
 type Props = {
   preset: DayPreset | null;
   selectedKeyframeId: string | null;
@@ -61,6 +66,16 @@ type Props = {
   composing: boolean;
   /** Built-in / locked composition — scrub OK, no keyframe writes */
   compositionLocked?: boolean;
+  /** The shown preset is the one currently sent to the lamp. */
+  onAir?: boolean;
+  /** Net offset applied to this draft since compose started (minutes). */
+  shiftMinutes?: number;
+  onShiftAll?: (deltaMinutes: number) => void;
+  canReset?: boolean;
+  onReset?: () => void;
+  onCurveChange?: (curve: CurveStyle) => void;
+  onSnapChange?: (snap: SnapMode) => void;
+  onClearKeys?: () => void;
   /** When true (compose + user preset), description is an editable textarea. */
   descriptionEditable?: boolean;
   onScrub: (minutes: number) => void;
@@ -83,7 +98,10 @@ function yFor(value: number): number {
 }
 
 /** Cubic path through nodes, holding edge levels to day bounds. */
-function cubicThrough(nodes: { x: number; y: number }[]): string {
+function cubicThrough(
+  nodes: { x: number; y: number }[],
+  sharp = false,
+): string {
   if (nodes.length === 0) return `M 0,${Y0} L ${W},${Y0}`;
   if (nodes.length === 1) {
     const y = nodes[0]!.y;
@@ -93,6 +111,10 @@ function cubicThrough(nodes: { x: number; y: number }[]): string {
   for (let i = 0; i < nodes.length - 1; i++) {
     const p1 = nodes[i]!;
     const p2 = nodes[i + 1]!;
+    if (sharp) {
+      d += ` L ${p2.x},${p2.y}`;
+      continue;
+    }
     const dx = p2.x - p1.x;
     const cp1x = p1.x + dx / 3;
     const cp2x = p2.x - dx / 3;
@@ -152,6 +174,7 @@ function pathForChannel(preset: DayPreset, channel: keyof Channels): string {
         x: (k.minutes / 1440) * W,
         y: yFor(k.channels[channel]),
       })),
+      preset.curve === "sharp",
     );
   }
   return smoothPolyline(sampleCurve(preset, channel));
@@ -163,6 +186,14 @@ export function DayTimeline({
   playheadMinutes,
   composing,
   compositionLocked = false,
+  onAir = false,
+  shiftMinutes = 0,
+  onShiftAll,
+  canReset = false,
+  onReset,
+  onCurveChange,
+  onSnapChange,
+  onClearKeys,
   descriptionEditable = false,
   onScrub,
   onSelectKeyframe,
@@ -175,6 +206,21 @@ export function DayTimeline({
   onDescriptionChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [hiddenCurves, setHiddenCurves] = useState<Record<string, boolean>>(
+    () => {
+      try {
+        return JSON.parse(localStorage.getItem(HIDDEN_CURVES_KEY) ?? "{}");
+      } catch {
+        return {};
+      }
+    },
+  );
+  const toggleCurve = (key: string) =>
+    setHiddenCurves((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem(HIDDEN_CURVES_KEY, JSON.stringify(next));
+      return next;
+    });
   const [draggingPlayhead, setDraggingPlayhead] = useState(false);
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
   const [draggingRamp, setDraggingRamp] = useState<{
@@ -265,9 +311,9 @@ export function DayTimeline({
     : isFreeManualPreset(preset)
       ? "Sliders mode · top R/G/B/UV drive the lamp · day presets for schedules"
       : isPlayback
-        ? compositionLocked
-          ? "Playing · read-only builtin · Duplicate to compose"
-          : "Playing · clock CTI · New / Duplicate / Edit to compose"
+        ? onAir
+          ? "On the lamp · drag the playhead to preview other times"
+          : "Preview only · press play on the preset to send it to the lamp"
         : compositionLocked
           ? "Built-in read-only · Duplicate to compose"
           : preset.mode === "constant"
@@ -309,14 +355,38 @@ export function DayTimeline({
           <p className="mt-1 text-xs leading-relaxed text-teal-100/50">{hint}</p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="flex shrink-0 items-start gap-2">
+          {showCtiChrome && preset && onShiftAll && (
+            <TimelineMenu
+              snap={preset.snap}
+              curve={preset.curve ?? "smooth"}
+              shiftMinutes={shiftMinutes}
+              keyCount={preset.keyframes.length}
+              canReset={canReset}
+              channels={CHANNEL_META.map((c) => ({
+                key: c.key,
+                label: c.label,
+                color: c.accent,
+              }))}
+              visible={Object.fromEntries(
+                CHANNEL_META.map((c) => [c.key, !hiddenCurves[c.key]]),
+              )}
+              onShiftAll={onShiftAll}
+              onReset={() => onReset?.()}
+              onCurveChange={(c) => onCurveChange?.(c)}
+              onSnapChange={(s) => onSnapChange?.(s)}
+              onToggleChannel={toggleCurve}
+              onClearKeys={() => onClearKeys?.()}
+            />
+          )}
+        <div className="flex flex-col items-end gap-1.5">
           {composing ? (
             <span className="rounded-full border border-amber-300/25 bg-amber-950/35 px-2 py-0.5 font-mono text-[9px] tracking-wide text-amber-100/85 uppercase">
               Composing
             </span>
           ) : (
             <span className="rounded-full border border-teal-300/20 bg-teal-950/40 px-2 py-0.5 font-mono text-[9px] tracking-wide text-teal-200/75 uppercase">
-              Playing
+              {onAir ? "Playing" : "Preview"}
             </span>
           )}
           <span
@@ -327,6 +397,7 @@ export function DayTimeline({
           >
             {minsToTime(playheadMinutes)}
           </span>
+        </div>
         </div>
       </div>
 
@@ -343,9 +414,14 @@ export function DayTimeline({
         >
           {isPlayback && (
             <div className="pointer-events-none absolute top-2.5 left-3 z-[1] flex items-center gap-1.5 rounded-full border border-teal-400/25 bg-teal-950/50 px-2 py-0.5">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full bg-teal-300",
+                  onAir ? "animate-pulse" : "opacity-40",
+                )}
+              />
               <span className="font-[Figtree] text-[10px] font-semibold tracking-[0.14em] text-teal-200/80 uppercase">
-                Playback · telemetry
+                {onAir ? "On the lamp" : "Preview"}
               </span>
             </div>
           )}
@@ -355,16 +431,12 @@ export function DayTimeline({
             ref={svgRef}
             className={cn(
               "h-48 w-full touch-none select-none sm:h-56",
-              !preset
-                ? "cursor-default"
-                : isPlayback
-                  ? "cursor-not-allowed"
-                  : "cursor-ew-resize",
+              preset ? "cursor-ew-resize" : "cursor-default",
             )}
             viewBox={`0 0 ${W} ${H}`}
             preserveAspectRatio="none"
             onPointerDown={(e) => {
-              if (!preset || !canCompose) return;
+              if (!preset) return;
               if ((e.target as Element).closest("[data-kf]")) return;
               const mins = minsFromEvent(e.clientX, false);
               setDraggingPlayhead(true);
@@ -374,7 +446,7 @@ export function DayTimeline({
               onScrub(mins);
             }}
             onPointerMove={(e) => {
-              if (!preset || !canCompose) return;
+              if (!preset) return;
               if (draggingRamp && canCompose && onMoveRampEdge) {
                 onMoveRampEdge(
                   draggingRamp.kind,
@@ -522,7 +594,8 @@ export function DayTimeline({
                     ["green", paths.green],
                     ["red", paths.red],
                   ] as const
-                ).map(([key, d]) => (
+                ).map(([key, d]) =>
+                  hiddenCurves[key] ? null : (
                   <path
                     key={key}
                     d={d}
@@ -533,7 +606,8 @@ export function DayTimeline({
                     strokeLinejoin="round"
                     opacity={0.88}
                   />
-                ))}
+                  ),
+                )}
               </g>
             )}
 
@@ -644,10 +718,10 @@ export function DayTimeline({
             {/* CTI / playhead */}
             <g
               filter="url(#cti-glow)"
-              style={{ pointerEvents: canCompose ? "auto" : "none" }}
-              className={canCompose ? "cursor-ew-resize" : undefined}
+              style={{ pointerEvents: preset ? "auto" : "none" }}
+              className={preset ? "cursor-ew-resize" : undefined}
               onPointerDown={(e) => {
-                if (!preset || !canCompose) return;
+                if (!preset) return;
                 e.stopPropagation();
                 setDraggingPlayhead(true);
                 setTimeDraft(null);

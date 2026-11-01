@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Settings } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { THEMES, useTheme } from "@/lib/themes";
+import { useKoiControls } from "@/lib/koiControls";
 
 /**
  * Gear button plus its menu. One element, two presentations (see .settings-panel in
@@ -16,6 +17,8 @@ export function SettingsMenu() {
   const selectRef = useRef<HTMLSelectElement>(null);
   const panelId = useId();
   const themeId = useId();
+  const koiId = useId();
+  const [koiControls, setKoiControls] = useKoiControls();
 
   const close = (returnFocus: boolean) => {
     setOpen(false);
@@ -100,6 +103,19 @@ export function SettingsMenu() {
               </select>
               <ChevronDown className="settings-chevron" aria-hidden />
             </span>
+          </label>
+          <label htmlFor={koiId} className="settings-row">
+            <span className="settings-row-text">
+              <span className="font-medium">Koi controls</span>
+              <span className="settings-hint">Show the pond tuning panel</span>
+            </span>
+            <input
+              id={koiId}
+              type="checkbox"
+              className="h-4 w-4 accent-teal-300"
+              checked={koiControls}
+              onChange={(e) => setKoiControls(e.target.checked)}
+            />
           </label>
         </div>
       </div>

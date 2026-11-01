@@ -1,8 +1,17 @@
 import type { Channels } from "@/lib/bridge";
 
 export type PresetMode = "constant" | "schedule";
-export type SnapMode = "free" | "hour";
+export type SnapMode = "free" | "quarter" | "half" | "hour";
 export type Interpolation = "linear";
+/** smooth = eased between keys (default); sharp = straight lines. */
+export type CurveStyle = "smooth" | "sharp";
+
+export const SNAP_STEP_MIN: Record<SnapMode, number> = {
+  free: 1,
+  quarter: 15,
+  half: 30,
+  hour: 60,
+};
 
 export type RampKind = "sunrise" | "sunset";
 export type RampRole = "start" | "end";
@@ -29,6 +38,8 @@ export type DayPreset = {
   keyframes: Keyframe[];
   snap: SnapMode;
   interpolation: Interpolation;
+  /** Curve shape between keys. Missing = smooth. */
+  curve?: CurveStyle;
   /** Hardcoded starter — never persisted; edits blocked in UI */
   builtin?: boolean;
 };
@@ -279,7 +290,8 @@ export function timeToMins(timeStr: string): number {
 export function clampMinutes(mins: number, snap: SnapMode): number {
   let v = Math.round(mins);
   v = ((v % 1440) + 1440) % 1440;
-  if (snap === "hour") v = Math.round(v / 60) * 60;
+  const step = SNAP_STEP_MIN[snap];
+  if (step > 1) v = Math.round(v / step) * step;
   if (v >= 1440) v = 1439;
   return v;
 }
@@ -323,6 +335,7 @@ export function duplicateAsUserPreset(source: DayPreset): DayPreset {
       rampRole: k.rampRole,
     })),
     snap: source.snap,
+    curve: source.curve,
     interpolation: "linear",
     builtin: false,
   };
@@ -346,6 +359,7 @@ export function presetsEqual(a: DayPreset, b: DayPreset): boolean {
     (a.description ?? "") === (b.description ?? "") &&
     a.mode === b.mode &&
     a.snap === b.snap &&
+    (a.curve ?? "smooth") === (b.curve ?? "smooth") &&
     a.constantChannels.red === b.constantChannels.red &&
     a.constantChannels.green === b.constantChannels.green &&
     a.constantChannels.blue === b.constantChannels.blue &&
@@ -408,7 +422,8 @@ export function interpolateAt(
 
   const span = p2Mins - p1Mins;
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;
-  const progress = linear * linear * (3 - 2 * linear);
+  const progress =
+    preset.curve === "sharp" ? linear : linear * linear * (3 - 2 * linear);
   return lerpChannels(p1.channels, p2.channels, progress);
 }
 
@@ -539,7 +554,11 @@ function normalizeUserPreset(p: Partial<DayPreset>): DayPreset {
           };
         })
       : [],
-    snap: p.snap === "hour" ? "hour" : "free",
+    snap:
+      p.snap === "hour" || p.snap === "half" || p.snap === "quarter"
+        ? p.snap
+        : "free",
+    curve: p.curve === "sharp" ? "sharp" : undefined,
     interpolation: "linear",
     builtin: false,
   };
