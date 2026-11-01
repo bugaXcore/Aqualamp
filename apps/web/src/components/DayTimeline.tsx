@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link2, Plus, Trash2, Undo2 } from "lucide-react";
 import { ChannelSlider } from "@/components/ChannelSlider";
 import { SolarAssistStrip } from "@/components/SolarAssistStrip";
 import { TimelineMenu } from "@/components/TimelineMenu";
@@ -13,7 +13,6 @@ import {
   type DayPreset,
   type Keyframe,
   type CurveStyle,
-  type SnapMode,
   type RampKind,
 } from "@/lib/presets";
 import { listLinkedRamps, type SolarApplyInput } from "@/lib/ramps";
@@ -73,8 +72,9 @@ type Props = {
   onShiftAll?: (deltaMinutes: number) => void;
   canReset?: boolean;
   onReset?: () => void;
+  canUndo?: boolean;
+  onUndo?: () => void;
   onCurveChange?: (curve: CurveStyle) => void;
-  onSnapChange?: (snap: SnapMode) => void;
   onClearKeys?: () => void;
   /** When true (compose + user preset), description is an editable textarea. */
   descriptionEditable?: boolean;
@@ -191,8 +191,9 @@ export function DayTimeline({
   onShiftAll,
   canReset = false,
   onReset,
+  canUndo,
+  onUndo,
   onCurveChange,
-  onSnapChange,
   onClearKeys,
   descriptionEditable = false,
   onScrub,
@@ -335,6 +336,17 @@ export function DayTimeline({
     onDeleteKeyframe(activeKeyframe.id);
   };
 
+  const handleStepKey = (dir: 1 | -1) => {
+    if (sorted.length === 0) return;
+    const here = activeKeyframe?.minutes ?? snappedPlayhead;
+    const target =
+      dir > 0
+        ? (sorted.find((k) => k.minutes > here) ?? sorted[0])
+        : ([...sorted].reverse().find((k) => k.minutes < here) ??
+          sorted[sorted.length - 1]);
+    if (target) onSelectKeyframe(target.id);
+  };
+
   const commitTimeDraft = () => {
     if (!activeKeyframe || timeDraft === null) return;
     const next = clampMinutes(timeToMins(timeDraft), preset?.snap ?? "free");
@@ -374,7 +386,6 @@ export function DayTimeline({
               onShiftAll={onShiftAll}
               onReset={() => onReset?.()}
               onCurveChange={(c) => onCurveChange?.(c)}
-              onSnapChange={(s) => onSnapChange?.(s)}
               onToggleChannel={toggleCurve}
               onClearKeys={() => onClearKeys?.()}
             />
@@ -845,7 +856,54 @@ export function DayTimeline({
             className="cti-chrome pointer-events-none absolute top-1.5 z-30"
             style={{ left: `${ctiPct}%` }}
           >
-            <div className="pointer-events-auto flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-teal-300/30 bg-depth-950/95 p-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md">
+            <div
+              className={cn(
+                "pointer-events-auto flex items-center gap-0.5 rounded-full border border-teal-300/30 bg-depth-950/95 p-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md",
+                ctiPct < 16
+                  ? "translate-x-0"
+                  : ctiPct > 84
+                    ? "-translate-x-full"
+                    : "-translate-x-1/2",
+              )}
+            >
+              {[
+                {
+                  label: "Undo",
+                  icon: Undo2,
+                  onClick: () => onUndo?.(),
+                  disabled: !canUndo,
+                },
+                {
+                  label: "Previous key",
+                  icon: ChevronLeft,
+                  onClick: () => handleStepKey(-1),
+                  disabled: sorted.length === 0,
+                },
+                {
+                  label: "Next key",
+                  icon: ChevronRight,
+                  onClick: () => handleStepKey(1),
+                  disabled: sorted.length === 0,
+                },
+              ].map(({ label, icon: Icon, onClick, disabled }) => (
+                <button
+                  key={label}
+                  type="button"
+                  title={label}
+                  aria-label={label}
+                  disabled={disabled}
+                  className={cn(
+                    "flex h-7 w-6 items-center justify-center rounded-full transition",
+                    disabled
+                      ? "cursor-not-allowed text-teal-100/25"
+                      : "text-teal-100/80 hover:bg-teal-400/20 hover:text-teal-50",
+                  )}
+                  onClick={onClick}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              ))}
+              <span aria-hidden className="mx-0.5 h-4 w-px bg-teal-200/15" />
               <button
                 type="button"
                 title="Add keyframe at CTI"

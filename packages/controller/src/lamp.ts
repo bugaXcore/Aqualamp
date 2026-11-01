@@ -66,6 +66,8 @@ export class Lamp {
   // Bumped by disconnect() so a pending reconnect knows the user gave up.
   private session = 0;
   private lastLampId: string | undefined;
+  // True while the lamp runs its own schedule; connecting and reconnecting must not reset it.
+  private keepProgram = false;
   private readonly now: () => Date;
   private readonly unsubscribe: () => void;
 
@@ -96,9 +98,10 @@ export class Lamp {
     this.listeners.clear();
   }
 
-  async connect(lampId?: string): Promise<void> {
+  async connect(lampId?: string, keepProgram = false): Promise<void> {
     if (this.snapshot.state === "connecting" || this.snapshot.state === "connected") return;
     this.lastLampId = lampId;
+    this.keepProgram = keepProgram;
     this.session += 1;
     this.update({ state: "connecting", error: null });
     await this.establish(lampId);
@@ -108,8 +111,8 @@ export class Lamp {
     try {
       await this.transport.connect(lampId);
       this.lastSentHex = null;
-      await this.sendSequence(sessionSetupFrames(this.now()));
-      this.update({ state: "connected", mode: 1 });
+      await this.sendSequence(sessionSetupFrames(this.now(), this.keepProgram));
+      this.update({ state: "connected", mode: this.keepProgram ? 2 : 1 });
       this.scheduleFlush();
     } catch (error) {
       await this.transport.disconnect().catch(() => {});
@@ -134,6 +137,7 @@ export class Lamp {
   }
 
   async powerOff(): Promise<void> {
+    this.keepProgram = false;
     this.desired = { ...DEFAULT_CHANNELS };
     this.hasDesired = true;
     this.update({ channels: this.desired, mode: 1 });
@@ -143,6 +147,7 @@ export class Lamp {
 
   /** The official app's power-on: mode 1, preset 3, always-on window. */
   async powerOn(): Promise<void> {
+    this.keepProgram = false;
     await this.command(powerOnFrames());
     this.desired = { red: 51, green: 95, blue: 49, uv: 100 };
     this.hasDesired = true;
@@ -152,6 +157,7 @@ export class Lamp {
 
   async setMode(mode: 1 | 2): Promise<void> {
     await this.command([modeFrame(mode)]);
+    this.keepProgram = mode === 2;
     this.update({ mode });
   }
 
@@ -184,6 +190,7 @@ export class Lamp {
     }
     frames.push(modeFrame(2));
     await this.command(frames);
+    this.keepProgram = true;
     this.update({ mode: 2 });
   }
 

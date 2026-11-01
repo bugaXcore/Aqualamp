@@ -113,6 +113,23 @@ describe("Lamp", () => {
     assert.equal(after[3], "FB F9 00 00 EB 00 55 55");
   });
 
+  it("keeps the lamp's own program when connecting or reconnecting while it runs one", async () => {
+    const { transport, lamp } = setup();
+    await lamp.connect(undefined, true);
+    assert.equal(lamp.current.mode, 2);
+    assert.deepEqual(hex(transport), ["FF 23 05 09 55 55 55 55"]);
+
+    transport.drop();
+    const before = transport.sent.length;
+    await lamp.connect();
+    assert.deepEqual(hex(transport).slice(before), [
+      "FF 23 05 09 55 55 55 55",
+      "FD F1 55 55 55 55 55 55",
+      "FE F9 00 00 24 00 00 00",
+    ]);
+    assert.equal(lamp.current.mode, 1);
+  });
+
   it("reports a failed setup as an error and disconnects", async () => {
     const { transport, lamp } = setup();
     transport.failNextSend = new Error("write failed");

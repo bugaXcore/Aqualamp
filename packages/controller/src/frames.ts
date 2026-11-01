@@ -130,12 +130,11 @@ export function powerOnFrames(): Frame[] {
  * Frames to send after every connect: the official app overwrites the clock
  * and timer, and the lamp stays dark outside the timer window in mode 1.
  */
-export function sessionSetupFrames(now: Date): Frame[] {
-  return [
-    clockFrame(now.getHours(), now.getMinutes(), now.getSeconds()),
-    modeFrame(1),
-    alwaysOnTimerFrame(),
-  ];
+export function sessionSetupFrames(now: Date, keepProgram = false): Frame[] {
+  const clock = clockFrame(now.getHours(), now.getMinutes(), now.getSeconds());
+  // A lamp running its own schedule keeps it: only the clock is refreshed.
+  if (keepProgram) return [clock];
+  return [clock, modeFrame(1), alwaysOnTimerFrame()];
 }
 
 /**

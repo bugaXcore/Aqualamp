@@ -20,7 +20,7 @@ loadEnvFile();
 type Time = { hours: number; minutes: number };
 
 type ClientMessage =
-  | { type: "connect"; remember?: boolean }
+  | { type: "connect"; remember?: boolean; keepProgram?: boolean }
   | { type: "forget" }
   | { type: "disconnect" }
   | { type: "setChannels"; channels: Partial<Channels> }
@@ -119,7 +119,7 @@ wss.on("connection", (ws) => {
       switch (msg.type) {
         case "connect": {
           const remembered = msg.remember ? device.get() : undefined;
-          await lamp.connect(remembered);
+          await lamp.connect(remembered, Boolean(msg.keepProgram));
           if (lamp.current.state === "connected" && msg.remember && transport instanceof SidecarTransport && transport.connectedAddress) {
             device.set(transport.connectedAddress);
           }

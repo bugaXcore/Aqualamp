@@ -23,17 +23,9 @@ type Props = {
   onShiftAll: (deltaMinutes: number) => void;
   onReset: () => void;
   onCurveChange: (curve: CurveStyle) => void;
-  onSnapChange: (snap: SnapMode) => void;
   onToggleChannel: (key: string) => void;
   onClearKeys: () => void;
 };
-
-const GRID: { snap: SnapMode; label: string }[] = [
-  { snap: "free", label: "1m" },
-  { snap: "quarter", label: "15m" },
-  { snap: "half", label: "30m" },
-  { snap: "hour", label: "1h" },
-];
 
 export function formatShift(mins: number): string {
   if (mins === 0) return "0 min";
@@ -99,7 +91,6 @@ export function TimelineMenu({
   onShiftAll,
   onReset,
   onCurveChange,
-  onSnapChange,
   onToggleChannel,
   onClearKeys,
 }: Props) {
@@ -226,16 +217,6 @@ export function TimelineMenu({
               { value: "smooth", label: "Smooth" },
               { value: "sharp", label: "Sharp" },
             ]}
-          />
-
-          <div className="mt-1.5 mb-1">
-            <Heading>Min step</Heading>
-          </div>
-          <Segmented<SnapMode>
-            label="Minimum step"
-            value={snap}
-            onChange={onSnapChange}
-            options={GRID.map((g) => ({ value: g.snap, label: g.label }))}
           />
 
           <div className="mt-1.5 mb-1">

@@ -195,3 +195,11 @@ Fade codes (`RR` in the timer frame), 12 min observed each:
 - Code 5: jumps straight to a bright level (about 276) and drifts down slowly (about 276 -> 268 in 11 min).
 - Code 1: ramps in steps, about 53 -> 126 -> 185 -> 234 -> 268, reaching full in about 27 min, then flat.
 - The "30 minutes per step" mapping is therefore not confirmed. Only code 1 shows a clear ramp. Codes 2-4 would need a longer observation.
+
+## Keep-running workflow check (PC + webcam)
+
+- In mode 1 with slots stored, a streamed colour still wins. Writing slot frames alone does not change the mode.
+- In mode 2 the lamp keeps running its slots after the BLE disconnect.
+- Stored slots survive off/on frames.
+- The daily-window timer gates mode 1 (dark outside the window) but does not gate mode 2, so the app clips the uploaded slots to its own lamp hours instead.
+- Connecting without the session setup frames (clock only) leaves a running mode-2 schedule untouched.

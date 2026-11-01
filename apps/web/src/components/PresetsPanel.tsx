@@ -36,6 +36,11 @@ type Props = {
   /** Drafts that were never saved cannot be played. */
   neverSavedIds: Set<string>;
   onPlay: (id: string) => void;
+  /** Preset running on the lamp's own schedule, if any. */
+  lampRunId: string | null;
+  /** Steps in the schedule uploaded for that preset. */
+  lampSteps: number;
+  onLampRunChange: (id: string, on: boolean) => void;
 };
 
 export function PresetsPanel({
@@ -58,6 +63,9 @@ export function PresetsPanel({
   playingId,
   neverSavedIds,
   onPlay,
+  lampRunId,
+  lampSteps,
+  onLampRunChange,
 }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -296,6 +304,28 @@ export function PresetsPanel({
                       </button>
                     )}
                   </div>
+
+                  {active && !freeManual && !neverSaved && renamingId !== preset.id && (
+                    <label
+                      className="mt-1.5 flex cursor-pointer items-start gap-2 text-[11px] text-teal-100/70"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 accent-teal-300"
+                        checked={lampRunId === preset.id}
+                        onChange={(e) => onLampRunChange(preset.id, e.target.checked)}
+                      />
+                      <span>
+                        Keep running when app is closed
+                        {lampRunId === preset.id && (
+                          <span className="block text-teal-100/50">
+                            {lampSteps} {lampSteps === 1 ? "step" : "steps"} · runs on the lamp
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  )}
 
                   {showUserChrome && (
                     <div

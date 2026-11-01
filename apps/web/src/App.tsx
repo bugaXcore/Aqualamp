@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/button";
 import { useBridge } from "@/hooks/useBridge";
 import { useLamp } from "@/hooks/useLamp";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
-import { Bluetooth, BluetoothConnected, BluetoothOff } from "lucide-react";
+import { Bluetooth, BluetoothConnected, BluetoothOff, Power } from "lucide-react";
+import { compileSchedule } from "@aqualamp/core";
 import { IconButton } from "@/components/ui/icon-button";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useKoiControls } from "@/lib/koiControls";
+import { clipWindows, useLampHours, withinHours } from "@/lib/lampHours";
 import { ConnectGuide, explainError } from "@/components/ConnectGuide";
-import { LampControls } from "@/components/LampControls";
 import { channelsToCss, type Channels } from "@/lib/bridge";
 import {
   BUILTIN_PRESETS,
@@ -50,6 +51,10 @@ import {
 } from "@/lib/ramps";
 
 const PLAYING_KEY = "aqualamp.playingPreset";
+/** Preset the lamp runs on its own (five-step schedule) while the app is closed. */
+const LAMP_RUN_KEY = "aqualamp.lampRunPreset";
+/** Last schedule uploaded for that preset, so reconnecting does not rewrite an identical one. */
+const LAMP_RUN_SIG_KEY = "aqualamp.lampRunSig";
 
 function nowMinutes(): number {
   const d = new Date();
@@ -103,15 +108,33 @@ export default function App() {
   const [scrubbed, setScrubbed] = useState(false);
   /** Net "offset all keys" applied to the open draft, minutes wrapped to -720..720. */
   const [shiftMinutes, setShiftMinutes] = useState(0);
+  const [history, setHistory] = useState<
+    Record<string, { preset: DayPreset; shift: number }[]>
+  >({});
+  const lastHistoryPush = useRef({ id: "", t: 0 });
+  /** Preset running on the lamp's own schedule. Always the same as the playing preset. */
+  const [lampRunId, setLampRunId] = useState<string | null>(() =>
+    localStorage.getItem(LAMP_RUN_KEY),
+  );
+  /** The app cannot read the lamp's state, so this only tracks what it last asked for. */
+  const [powered, setPowered] = useState(true);
+  const [lampHours] = useLampHours();
+  const hoursKey = JSON.stringify(lampHours);
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
   const [rememberLamp, setRememberLamp] = useState(
     () => localStorage.getItem("aqualamp.rememberLamp") !== "0",
   );
+  const lampRunRef = useRef(lampRunId);
+  lampRunRef.current = lampRunId;
   const retry = useConnectRetry({
     state: bridge.state,
     error: bridge.error,
-    connect: () => bridge.connect({ remember: rememberLamp }),
+    connect: () =>
+      bridge.connect({
+        remember: rememberLamp,
+        keepProgram: lampRunRef.current !== null,
+      }),
   });
   const startConnect = retry.start;
   const handleRememberChange = (next: boolean) => {
@@ -213,10 +236,32 @@ export default function App() {
   }, [drafts, savedUserPresets]);
 
   useEffect(() => {
-    if (!connected || !playingPreset) return;
+    if (lampRunId) localStorage.setItem(LAMP_RUN_KEY, lampRunId);
+    else localStorage.removeItem(LAMP_RUN_KEY);
+  }, [lampRunId]);
+
+  const runPreset = useMemo(() => {
+    if (!lampRunId) return null;
+    return (
+      [...BUILTIN_PRESETS, ...savedUserPresets].find((p) => p.id === lampRunId) ??
+      null
+    );
+  }, [lampRunId, savedUserPresets]);
+
+  // The lamp runs its own schedule while the app streams nothing.
+  const runningOnLamp = lampRunId !== null && lampRunId === playingId;
+  /** Power-on resets the lamp to its default colour; colours sent before it settles get lost. */
+  const resumeAt = useRef(0);
+
+  useEffect(() => {
+    if (!connected || !playingPreset || runningOnLamp || !powered) return;
     let last = "";
     const send = () => {
-      const channels = interpolateAt(playingPreset, nowMinutes());
+      if (Date.now() < resumeAt.current) return;
+      const now = nowMinutes();
+      const channels = withinHours(lampHours, now)
+        ? interpolateAt(playingPreset, now)
+        : { red: 0, green: 0, blue: 0, uv: 0 };
       const key = JSON.stringify(channels);
       if (key === last) return;
       last = key;
@@ -225,7 +270,93 @@ export default function App() {
     send();
     const id = window.setInterval(send, 1000);
     return () => window.clearInterval(id);
-  }, [connected, playingPreset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, playingPreset, runningOnLamp, powered, hoursKey]);
+
+  useEffect(() => {
+    if (!connected || !runPreset || !powered) return;
+    const windows = clipWindows(
+      compileSchedule((m) => interpolateAt(runPreset, m)),
+      lampHours,
+    );
+    const sig = JSON.stringify([windows, bridge.calibrated]);
+    if (sig === localStorage.getItem(LAMP_RUN_SIG_KEY) && bridge.mode === 2) {
+      return;
+    }
+    const wait = Math.max(400, resumeAt.current - Date.now());
+    const t = window.setTimeout(() => {
+      bridge.setSchedule(windows);
+      localStorage.setItem(LAMP_RUN_SIG_KEY, sig);
+    }, wait);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, runPreset, powered, hoursKey, bridge.calibrated, bridge.mode]);
+
+  const lampSteps = useMemo(() => {
+    if (!runPreset) return 0;
+    return clipWindows(
+      compileSchedule((m) => interpolateAt(runPreset, m)),
+      lampHours,
+    ).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runPreset, hoursKey]);
+
+  const endLampRun = () => {
+    if (lampRunRef.current === null) return;
+    setLampRunId(null);
+    localStorage.removeItem(LAMP_RUN_SIG_KEY);
+    if (connected) bridge.setMode(1);
+  };
+
+  const loadedPresets = useRef(false);
+  useEffect(() => {
+    if (connected) setPowered(true);
+  }, [connected]);
+  useEffect(() => {
+    if (!loadedPresets.current) {
+      loadedPresets.current = true;
+      return;
+    }
+    if (
+      lampRunId &&
+      !BUILTIN_PRESETS.some((p) => p.id === lampRunId) &&
+      !savedUserPresets.some((p) => p.id === lampRunId)
+    ) {
+      endLampRun();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedUserPresets]);
+
+  const wakeLamp = () => {
+    if (powered) return;
+    setPowered(true);
+    bridge.power(true);
+    resumeAt.current = Date.now() + 2500;
+  };
+
+  const handlePower = () => {
+    if (powered) {
+      setPowered(false);
+      setLampRunId(null);
+      localStorage.removeItem(LAMP_RUN_SIG_KEY);
+      bridge.power(false);
+      return;
+    }
+    wakeLamp();
+    if (playingId === FREE_MANUAL_PRESET_ID) {
+      window.setTimeout(() => bridge.setChannels(local), 2500);
+    }
+  };
+
+  const handleLampRunChange = (id: string, on: boolean) => {
+    if (!on) {
+      endLampRun();
+      return;
+    }
+    wakeLamp();
+    setPlayingId(id);
+    setLampRunId(id);
+  };
 
   useEffect(() => {
     if (isFreeManual) return;
@@ -276,23 +407,76 @@ export default function App() {
     setLocal(channels);
     // Only Sliders mode drives the lamp directly; every preset edit is local until played.
     if (isFreeManual) {
+      endLampRun();
+      const wasOff = !powered;
+      wakeLamp();
       setPlayingId(FREE_MANUAL_PRESET_ID);
-      bridge.setChannels(channels);
+      if (wasOff) window.setTimeout(() => bridge.setChannels(channels), 2500);
+      else bridge.setChannels(channels);
     }
   };
 
   const handlePlay = (id: string) => {
     if (id === FREE_MANUAL_PRESET_ID) {
+      endLampRun();
+      const wasOff = !powered;
+      wakeLamp();
       setPlayingId(id);
-      bridge.setChannels(local);
+      if (wasOff) window.setTimeout(() => bridge.setChannels(local), 2500);
+      else bridge.setChannels(local);
       return;
     }
     if (!BUILTIN_PRESETS.some((p) => p.id === id) && !savedUserPresets.some((p) => p.id === id)) return;
+    if (id !== lampRunId) endLampRun();
+    wakeLamp();
     setPlayingId(id);
+  };
+
+  // Rapid edits (slider drags) collapse into one undo step.
+  const pushHistory = (id: string) => {
+    const base =
+      drafts[id] ??
+      savedUserPresets.find((p) => p.id === id) ??
+      displayPresets.find((p) => p.id === id);
+    if (!base) return;
+    const now = Date.now();
+    const last = lastHistoryPush.current;
+    lastHistoryPush.current = { id, t: now };
+    if (last.id === id && now - last.t < 500) return;
+    setHistory((prev) => ({
+      ...prev,
+      [id]: [...(prev[id] ?? []).slice(-49), { preset: clonePreset(base), shift: shiftMinutes }],
+    }));
+  };
+
+  const clearHistory = (id: string) =>
+    setHistory((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+  const handleUndo = () => {
+    if (!selectedPresetId) return;
+    const stack = history[selectedPresetId];
+    const entry = stack?.[stack.length - 1];
+    if (!entry) return;
+    lastHistoryPush.current = { id: "", t: 0 };
+    setHistory((prev) => ({ ...prev, [selectedPresetId]: stack.slice(0, -1) }));
+    setDrafts((prev) => ({ ...prev, [selectedPresetId]: entry.preset }));
+    setShiftMinutes(entry.shift);
+    setSelectedKeyframeId(null);
+    setLocal(
+      entry.preset.mode === "constant"
+        ? { ...entry.preset.constantChannels }
+        : interpolateAt(entry.preset, playheadMinutes),
+    );
   };
 
   const patchPreset = (id: string, patch: (p: DayPreset) => DayPreset) => {
     if (isBuiltinPreset(id) || isPlayback) return;
+    pushHistory(id);
     setDrafts((prev) => {
       const base =
         prev[id] ??
@@ -399,6 +583,7 @@ export default function App() {
       delete next[selectedPresetId];
       return next;
     });
+    clearHistory(selectedPresetId);
     exitCompose();
   };
 
@@ -419,6 +604,7 @@ export default function App() {
     if (wasNew) {
       setSelectedPresetId(null);
     }
+    clearHistory(selectedPresetId);
     exitCompose();
   };
 
@@ -434,6 +620,7 @@ export default function App() {
       delete next[id];
       return next;
     });
+    clearHistory(id);
     if (composeIntentId === id) setComposeIntentId(null);
     if (selectedPresetId === id) {
       setSelectedPresetId(null);
@@ -486,6 +673,7 @@ export default function App() {
   const handleResetToSaved = () => {
     if (!selectedPresetId || !selectedIsCommitted) return;
     const id = selectedPresetId;
+    pushHistory(id);
     setDrafts((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -704,7 +892,19 @@ export default function App() {
           >
             <ConnectIcon aria-hidden />
           </IconButton>
-          <SettingsMenu />
+          {connected ? (
+            <IconButton
+              label={powered ? "Turn lamp off" : "Turn lamp on"}
+              aria-pressed={powered}
+              onClick={handlePower}
+            >
+              <Power aria-hidden className={powered ? "" : "opacity-50"} />
+            </IconButton>
+          ) : null}
+          <SettingsMenu
+            calibrated={bridge.calibrated}
+            onCalibratedChange={bridge.setCalibrated}
+          />
         </div>
       </header>
 
@@ -790,10 +990,11 @@ export default function App() {
               The lamp eases to each new colour over about 15 seconds, so changes look delayed.
             </p>
 
-            <LampControls lamp={bridge} preset={selectedPreset} />
-
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
               <PresetsPanel
+                lampRunId={lampRunId}
+                lampSteps={lampSteps}
+                onLampRunChange={handleLampRunChange}
                 presets={displayPresets}
                 selectedId={selectedPresetId}
                 dirty={dirty}
@@ -838,6 +1039,10 @@ export default function App() {
                 onShiftAll={handleShiftAll}
                 canReset={dirty && selectedIsCommitted}
                 onReset={handleResetToSaved}
+                canUndo={Boolean(
+                  selectedPresetId && history[selectedPresetId]?.length,
+                )}
+                onUndo={handleUndo}
                 onClearKeys={handleClearKeys}
                 onCurveChange={(curve) =>
                   selectedPresetId &&
@@ -845,10 +1050,6 @@ export default function App() {
                     ...p,
                     curve: curve === "sharp" ? "sharp" : undefined,
                   }))
-                }
-                onSnapChange={(snap) =>
-                  selectedPresetId &&
-                  patchPreset(selectedPresetId, (p) => ({ ...p, snap }))
                 }
                 onAir={
                   selectedPresetId !== null &&

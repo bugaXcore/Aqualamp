@@ -33,9 +33,9 @@ export function useLamp() {
     mock: false,
     error: snapshot.error ?? commandError,
     bridgeError: supported ? null : "Web Bluetooth is unavailable here. Use Chrome or Edge on localhost or HTTPS.",
-    connect: (opts?: { remember?: boolean }) => {
+    connect: (opts?: { remember?: boolean; keepProgram?: boolean }) => {
       transport.remember = opts?.remember ?? false;
-      void lamp.connect();
+      void lamp.connect(undefined, opts?.keepProgram ?? false);
     },
     forgetDevice: () => void transport.forget(),
     disconnect: () => void lamp.disconnect(),
