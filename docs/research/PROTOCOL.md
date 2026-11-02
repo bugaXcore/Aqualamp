@@ -228,3 +228,4 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - Fade code 3, 50 min with the timer starting at the base time: wall sum about 6 (off) before start, then stepped plateaus rather than a smooth ramp: about 52 from 0 s, about 222 from about 7 min, about 348 from about 18 min, about 424 from about 36 min, holding to 50 min. Plateaus drift down by about 1%.
 - `tools/hwtest/wall_watch.py` prints the wall colour passively.
 - Not tested: a lamp power cut (needs a physical unplug), UV, fade codes 2 and 4 over long runs.
+- Lamp power cut (unplugged about 55 s, replugged): the stored all-day blue slot in mode 2 came back by itself about 5 s after power returned, with no app or bridge connected. Schedules survive power loss (a window-based slot was not tested against the clock, which the lamp loses until it is set again).
