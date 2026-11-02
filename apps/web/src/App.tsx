@@ -566,8 +566,13 @@ export default function App() {
         .length +
       1;
     const preset = createEmptyPreset(`Preset ${n}`);
+    // The new preset starts from whatever colour the sliders currently show.
+    if (Object.values(local).some((v) => v > 0)) {
+      preset.constantChannels = { ...local };
+      preset.keyframes = [{ id: newId(), minutes: 0, channels: { ...local } }];
+    }
     setDrafts((prev) => ({ ...prev, [preset.id]: preset }));
-    setSelectedKeyframeId(null);
+    setSelectedKeyframeId(preset.keyframes[0]?.id ?? null);
     setLocal({ ...preset.constantChannels });
     enterCompose(preset.id);
   };
@@ -1061,7 +1066,11 @@ export default function App() {
               />
 
               <DayTimeline
-                preset={selectedPreset}
+                preset={
+                  selectedPreset && isFreeManual
+                    ? { ...selectedPreset, constantChannels: local }
+                    : selectedPreset
+                }
                 selectedKeyframeId={selectedKeyframeId}
                 playheadMinutes={playheadMinutes}
                 composing={isComposing}
