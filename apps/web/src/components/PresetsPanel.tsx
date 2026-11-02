@@ -5,7 +5,6 @@ import {
   isFreeManualPreset,
   presetOrbBackground,
   type DayPreset,
-  type PresetMode,
   type SnapMode,
 } from "@/lib/presets";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,6 @@ type Props = {
   /** Pencil / edit — enter compose on a user preset. */
   onRequestCompose: (id: string) => void;
   onDelete: (id: string) => void;
-  onModeChange: (id: string, mode: PresetMode) => void;
   onSnapChange: (id: string, snap: SnapMode) => void;
   onSave: () => void;
   onDiscard: () => void;
@@ -49,7 +47,6 @@ export function PresetsPanel({
   onRename,
   onRequestCompose,
   onDelete,
-  onModeChange,
   onSnapChange,
   onSave,
   onDiscard,
@@ -297,49 +294,28 @@ export function PresetsPanel({
                     )}
                   </div>
 
-                  {showUserChrome && (
+                  {showUserChrome && preset.mode === "schedule" && (
                     <div
                       className="mt-1.5 flex flex-wrap items-center gap-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex rounded-md border border-teal-200/10 bg-depth-950/60 p-0.5">
-                        {(["constant", "schedule"] as PresetMode[]).map(
-                          (mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={() => onModeChange(preset.id, mode)}
-                              className={cn(
-                                "rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide capitalize transition",
-                                preset.mode === mode
-                                  ? "bg-teal-400/20 text-teal-100"
-                                  : "text-teal-100/45 hover:text-teal-100/75",
-                              )}
-                            >
-                              {mode}
-                            </button>
-                          ),
-                        )}
+                        {(["free", "hour"] as SnapMode[]).map((snap) => (
+                          <button
+                            key={snap}
+                            type="button"
+                            onClick={() => onSnapChange(preset.id, snap)}
+                            className={cn(
+                              "rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide capitalize transition",
+                              preset.snap === snap
+                                ? "bg-teal-400/20 text-teal-100"
+                                : "text-teal-100/45 hover:text-teal-100/75",
+                            )}
+                          >
+                            {snap === "free" ? "Free" : "Hours"}
+                          </button>
+                        ))}
                       </div>
-                      {preset.mode === "schedule" && (
-                        <div className="flex rounded-md border border-teal-200/10 bg-depth-950/60 p-0.5">
-                          {(["free", "hour"] as SnapMode[]).map((snap) => (
-                            <button
-                              key={snap}
-                              type="button"
-                              onClick={() => onSnapChange(preset.id, snap)}
-                              className={cn(
-                                "rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide capitalize transition",
-                                preset.snap === snap
-                                  ? "bg-teal-400/20 text-teal-100"
-                                  : "text-teal-100/45 hover:text-teal-100/75",
-                              )}
-                            >
-                              {snap === "free" ? "Free" : "Hours"}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

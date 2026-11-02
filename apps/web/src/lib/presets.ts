@@ -310,7 +310,7 @@ export function createEmptyPreset(name = "New preset"): DayPreset {
     id: newId(),
     name,
     description: "",
-    mode: "constant",
+    mode: "schedule",
     constantChannels: { ...ZERO_CHANNELS },
     keyframes: [],
     snap: "free",
@@ -321,13 +321,20 @@ export function createEmptyPreset(name = "New preset"): DayPreset {
 
 /** Deep-ish clone of a preset as a new editable user copy. */
 export function duplicateAsUserPreset(source: DayPreset): DayPreset {
+  // A constant colour becomes a single key at 00:00, which holds all day.
+  const flat = source.mode === "constant";
+  const lit = Object.values(source.constantChannels).some((v) => v > 0);
   return {
     id: newId(),
     name: `${source.name} (copy)`,
     description: source.description ?? "",
-    mode: source.mode,
+    mode: "schedule",
     constantChannels: { ...source.constantChannels },
-    keyframes: source.keyframes.map((k) => ({
+    keyframes: flat
+      ? lit
+        ? [{ id: newId(), minutes: 0, channels: { ...source.constantChannels } }]
+        : []
+      : source.keyframes.map((k) => ({
       id: newId(),
       minutes: k.minutes,
       channels: { ...k.channels },

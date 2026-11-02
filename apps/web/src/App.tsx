@@ -44,7 +44,6 @@ import {
   simplifyToLimit,
   type DayPreset,
   type Keyframe,
-  type PresetMode,
   type RampKind,
   type SnapMode,
 } from "@/lib/presets";
@@ -480,10 +479,14 @@ export default function App() {
         ...selectedPreset.constantChannels,
         [key]: value,
       };
+      const id = newId();
       patchPreset(selectedPreset.id, (p) => ({
         ...p,
+        mode: "schedule",
         constantChannels: nextChannels,
+        keyframes: [{ id, minutes: 0, channels: nextChannels }],
       }));
+      setSelectedKeyframeId(id);
       pushToBridge(nextChannels);
       return;
     }
@@ -710,11 +713,6 @@ export default function App() {
     patchPreset(selectedPreset.id, (p) => ({ ...p, keyframes: [] }));
     setSelectedKeyframeId(null);
     setShiftMinutes(0);
-  };
-
-  const handleModeChange = (id: string, mode: PresetMode) => {
-    patchPreset(id, (p) => ({ ...p, mode }));
-    setSelectedKeyframeId(null);
   };
 
   const handleAddKeyframe = (minutes: number, channels: Channels) => {
@@ -1054,7 +1052,6 @@ export default function App() {
                 }
                 onRequestCompose={handleRequestCompose}
                 onDelete={handleDeletePreset}
-                onModeChange={handleModeChange}
                 onSnapChange={(id, snap: SnapMode) =>
                   patchPreset(id, (p) => ({ ...p, snap }))
                 }
