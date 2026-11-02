@@ -211,3 +211,12 @@ An all-zero keyframe means lights off until the next key. Dark stretches cost no
 ## App modes
 
 Hardware mode (default): the playing preset is always uploaded as lamp steps (mode 2) and graphed as holds, so it keeps running with the app closed. App mode: the app streams smooth colours while open; the lamp stops following when the app closes.
+
+## Power-off and slot-vs-colour comparison (2026-11-02)
+
+`tools/hwtest/poweroff_schedule.py`, `tools/hwtest/mode_compare.py`.
+
+- With a stored mode-2 slot lit, the colour-off frame alone (`FB F9` zeros) does not turn the lamp off: the wall stayed at the slot colour for 60 s. Mode 1 (`FD F1`) followed by the off frame does (wall back to dark). The app's power-off sends mode 1 then off, so it is correct.
+- The same wire values sent as a mode-1 colour frame or as a slot-1 colour (00:00-24:00) give the same wall colour. Across red, green, blue (50% and 100%), white, a daily mix and 10% blue, every channel agreed within about 1-4% (the largest gap was white 50%, green 4%), and A-B-B-A order made no difference. UV is not visible to the webcam, so it is not covered.
+- Both paths reach the final colour within the first sample (7-10 s after the write, which includes the BLE connect), so easing does not differ measurably between them.
+- So any difference seen between hardware and app mode in the UI comes from the app side (graph, calibration, streaming against holds), not from how the lamp renders the two modes.
