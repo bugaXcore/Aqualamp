@@ -180,6 +180,7 @@ export function SettingsMenu({
                 <option value="hardware">Hardware</option>
                 <option value="app">App</option>
               </select>
+              <ChevronDown className="settings-chevron" aria-hidden />
             </span>
           </label>
           <div
