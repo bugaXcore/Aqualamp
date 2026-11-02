@@ -1,7 +1,7 @@
 // Draws a looping brightness clip (baked offline from video) as monochrome ASCII
 // on a canvas. Glyphs are pre-rendered into a small atlas and blitted per cell,
 // empty cells are skipped. Glyph colour is the canvas's CSS `color`.
-// Ported from the ascii-koi-background handoff (docs/ascii-koi-background-handoff.zip).
+// Ported from an ascii-koi-background design handoff.
 
 export type AsciiClip = {
   w: number;
