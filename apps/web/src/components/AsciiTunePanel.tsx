@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useKoiControls } from "@/lib/koiControls";
 import {
   ASCII_COLORS,
   ASCII_RAMPS,
@@ -40,6 +41,7 @@ const SLIDERS: { key: NumKey; label: string; min: number; max: number; step: num
 /** Temporary tuning panel, shown with `?tune=1`. */
 export function AsciiTunePanel() {
   const { settings, family, update, reset } = useAsciiSettings();
+  const [, setKoiControls] = useKoiControls();
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -57,9 +59,19 @@ export function AsciiTunePanel() {
 
   return (
     <div className="ascii-tune" data-open={open}>
-      <button type="button" className="ascii-tune-head" onClick={() => setOpen((o) => !o)}>
-        Pond tuning · {family} themes {open ? "–" : "+"}
-      </button>
+      <div className="flex items-center">
+        <button type="button" className="ascii-tune-head" onClick={() => setOpen((o) => !o)}>
+          Background animation · {family} themes {open ? "–" : "+"}
+        </button>
+        <button
+          type="button"
+          aria-label="Close tuning panel"
+          className="px-3 text-base leading-none"
+          onClick={() => setKoiControls(false)}
+        >
+          ×
+        </button>
+      </div>
       {open ? (
         <div className="ascii-tune-body">
           <label>

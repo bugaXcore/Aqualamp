@@ -17,12 +17,12 @@ type Props = {
   dirty: boolean;
   /** Selected preset exists in committed storage (false = never saved). */
   selectedIsCommitted: boolean;
-  /** Compose session for selected user preset â€” shows mode/snap/Save chrome. */
+  /** Compose session for selected user preset — shows mode/snap/Save chrome. */
   composing?: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
-  /** Pencil / edit â€” enter compose on a user preset. */
+  /** Pencil / edit — enter compose on a user preset. */
   onRequestCompose: (id: string) => void;
   onDelete: (id: string) => void;
   onModeChange: (id: string, mode: PresetMode) => void;
@@ -90,8 +90,8 @@ export function PresetsPanel({
           </h3>
           <p className="mt-1 text-xs text-teal-100/50">
             {composing
-              ? "Composing draft Â· Save or Cancel when done."
-              : "Tap to preview Â· press play to send to the lamp."}
+              ? "Composing draft · Save or Cancel when done."
+              : "Tap to preview · press play to send to the lamp."}
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={onCreate}>

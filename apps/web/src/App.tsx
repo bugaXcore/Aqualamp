@@ -355,7 +355,7 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedPreset) return;
-    /** Sliders mode is user-driven Ã¢â‚¬â€ never overwrite local from playhead ticks. */
+    /** Sliders mode is user-driven — never overwrite local from playhead ticks. */
     if (isFreeManualPreset(selectedPreset)) return;
     if (isPlayback) {
       setLocal(interpolateAt(selectedPreset, playheadMinutes));
@@ -828,42 +828,42 @@ export default function App() {
 
   const sliderHint = (() => {
     if (isFreeManual) {
-      return "Sliders mode Ã¢â‚¬â€ drag R/G/B/UV anytime Ã‚Â· day presets below for schedules.";
+      return "Sliders mode — drag R/G/B/UV anytime · day presets below for schedules.";
     }
     if (isPlayback) {
       if (!selectedPreset) {
-        return "Nothing selected Ã‚Â· tap a preset to preview it.";
+        return "Nothing selected · tap a preset to preview it.";
       }
       const onLamp = selectedPreset.id === playingId;
       const when = scrubbed ? minsToTime(playheadMinutes) : "now";
       if (onLamp) {
         return scrubbed
-          ? `Playing on the lamp Ã‚Â· previewing ${when} Ã‚Â· tap the preset to return to now.`
+          ? `Playing on the lamp · previewing ${when} · tap the preset to return to now.`
           : "Playing on the lamp.";
       }
-      return `Previewing ${when} Ã¢â‚¬â€ not on the lamp Ã‚Â· press play to send it.`;
+      return `Previewing ${when} — not on the lamp · press play to send it.`;
     }
-    if (!selectedPreset) return "Manual mix Ã¢â‚¬â€ no day preset selected.";
+    if (!selectedPreset) return "Manual mix — no day preset selected.";
     if (compositionLocked) {
-      return "Built-in preset Ã¢â‚¬â€ read-only Ã‚Â· Duplicate to compose.";
+      return "Built-in preset — read-only · Duplicate to compose.";
     }
     if (dirty) {
       return selectedPreset.mode === "constant"
-        ? "Composing draft Ã¢â‚¬â€ sliders edit constant levels Ã‚Â· Save or Cancel."
-        : `Composing draft Ã¢â‚¬â€ scrubbing ${minsToTime(playheadMinutes)} Ã‚Â· Save or Cancel.`;
+        ? "Composing draft — sliders edit constant levels · Save or Cancel."
+        : `Composing draft — scrubbing ${minsToTime(playheadMinutes)} · Save or Cancel.`;
     }
     if (selectedPreset.mode === "constant") {
-      return "Composing Ã¢â‚¬â€ constant levels Ã‚Â· Save to keep.";
+      return "Composing — constant levels · Save to keep.";
     }
     if (selectedKeyframeId) {
       const kf = selectedPreset.keyframes.find(
         (k) => k.id === selectedKeyframeId,
       );
-      if (!kf) return "Composing Ã¢â‚¬â€ keyframe.";
+      if (!kf) return "Composing — keyframe.";
       const label = kf.label ? ` (${kf.label})` : "";
-      return `Composing Ã¢â‚¬â€ keyframe at ${minsToTime(kf.minutes)}${label} Ã‚Â· Save to keep.`;
+      return `Composing — keyframe at ${minsToTime(kf.minutes)}${label} · Save to keep.`;
     }
-    return `Composing Ã¢â‚¬â€ scrubbing ${minsToTime(playheadMinutes)} Ã‚Â· sliders write a keyframe Ã‚Â· Save to keep.`;
+    return `Composing — scrubbing ${minsToTime(playheadMinutes)} · sliders write a keyframe · Save to keep.`;
   })();
 
   const mix = channelsToCss(local);
@@ -953,7 +953,7 @@ export default function App() {
         {!connected ? (
           <section className="hero-enter flex flex-1 flex-col items-center justify-center text-center">
             <p className="max-w-md text-base leading-relaxed text-teal-100/70 sm:text-lg">
-              Balance your Week Aqua light Ã¢â‚¬â€ cool channels, clear water light.
+              Balance your Week Aqua light — cool channels, clear water light.
             </p>
             <div className="mt-10 flex flex-col items-center gap-3">
               <Button
@@ -962,7 +962,7 @@ export default function App() {
                 disabled={!bridge.socketOpen || busy}
                 onClick={startConnect}
               >
-                {busy ? "ConnectingÃ¢â‚¬Â¦" : "Connect"}
+                {busy ? "Connecting…" : "Connect"}
               </Button>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-teal-100/70">
                 <input
@@ -981,7 +981,7 @@ export default function App() {
               {retry.retrying && (
                 <p className="max-w-sm text-sm text-teal-100/70" role="status">
                   {busy
-                    ? `Attempt ${retry.attempt} of ${retry.maxAttempts}Ã¢â‚¬Â¦`
+                    ? `Attempt ${retry.attempt} of ${retry.maxAttempts}…`
                     : `Trying again shortly (attempt ${Math.min(retry.attempt + 1, retry.maxAttempts)} of ${retry.maxAttempts}).`}
                   <button
                     type="button"
@@ -1002,7 +1002,7 @@ export default function App() {
                 </button>
               )}
               {!bridge.socketOpen && !bridge.bridgeError && (
-                <p className="text-sm text-teal-100/50">Reaching bridgeÃ¢â‚¬Â¦</p>
+                <p className="text-sm text-teal-100/50">Reaching bridge…</p>
               )}
               <ConnectGuide viaBridge={useTransport === useBridge} />
             </div>

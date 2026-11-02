@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, Settings } from "lucide-react";
+import { ChevronDown, Cog, Settings } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
+import { useAsciiSettings } from "@/components/AsciiBackground";
 import { THEMES, useTheme } from "@/lib/themes";
 import { useKoiControls } from "@/lib/koiControls";
 import { useLampMode, type LampMode } from "@/lib/lampMode";
@@ -43,7 +44,8 @@ export function SettingsMenu({
   const calId = useId();
   const modeId = useId();
   const [lampMode, setLampMode] = useLampMode();
-  const [koiControls, setKoiControls] = useKoiControls();
+  const [, setKoiControls] = useKoiControls();
+  const { settings: ascii, update } = useAsciiSettings();
 
   const close = (returnFocus: boolean) => {
     setOpen(false);
@@ -131,16 +133,36 @@ export function SettingsMenu({
           </label>
           <label htmlFor={koiId} className="settings-row">
             <span className="settings-row-text">
-              <span className="font-medium">Koi controls</span>
-              <span className="settings-hint">Show the pond tuning panel</span>
+              <span className="font-medium">Background animation</span>
+              <span className="settings-hint">Koi pond drifting behind the app</span>
             </span>
-            <input
-              id={koiId}
-              type="checkbox"
-              className="h-4 w-4 accent-teal-300"
-              checked={koiControls}
-              onChange={(e) => setKoiControls(e.target.checked)}
-            />
+            <span className="flex items-center gap-2">
+              {ascii.enabled && (
+                <button
+                  type="button"
+                  aria-label="Tune background animation"
+                  title="Tune background animation"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-teal-100/80 transition hover:bg-teal-400/20 hover:text-teal-50"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setKoiControls(true);
+                    close(false);
+                  }}
+                >
+                  <Cog className="h-4 w-4" aria-hidden />
+                </button>
+              )}
+              <input
+                id={koiId}
+                type="checkbox"
+                className="h-4 w-4 accent-teal-300"
+                checked={ascii.enabled}
+                onChange={(e) => {
+                  update({ enabled: e.target.checked });
+                  if (!e.target.checked) setKoiControls(false);
+                }}
+              />
+            </span>
           </label>
           <label htmlFor={modeId} className="settings-row">
             <span className="settings-row-text">
