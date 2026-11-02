@@ -94,6 +94,31 @@ Hardware scripts need the lamp and are run by hand, for example `python -u tools
 Client → server: `connect`, `disconnect`, `setChannels`, `power {on}`, `setMode {mode}`, `setTimer {sunrise, sunset, fade}`, `setSchedule {windows}`, `setCalibrated {on}`, `getStatus`.
 Server → client: `hello`, `state`, `channels`, `error`.
 
+## What works, and how sure we are
+
+Verified on a real S300 Pro (B3.0, firmware 6.1.2) with a locked webcam rig. Details and numbers are in [PROTOCOL.md](docs/research/PROTOCOL.md).
+
+| Area | Status |
+| --- | --- |
+| Colour control (R, G, B) with brightness calibration | Verified |
+| UV channel | Frames sent and accepted; the webcam can't see UV, so calibration is unverified |
+| Power on and off | Verified |
+| Five-slot schedule, keeps running after the BLE disconnect (PC test) | Verified |
+| Same schedule after closing a phone browser tab, or after a lamp power cut | Not tested yet |
+| Sunrise/sunset timer and fade codes | Library only, not in the UI. Code 0 and 1 verified; codes 2–4 stayed at a dim floor for 12 minutes, so any ramp is slower; code 5 jumps to bright |
+| Fan frame (`FC`) | Sent, no visible or audible effect; the S300 Pro may not have a fan |
+| The lamp's 12 built-in presets | Frames known and different, names unknown, not in the UI |
+| Other Week Aqua lamp families | Not supported |
+| iOS | Not supported directly (Safari has no Web Bluetooth); use the PC bridge |
+
+The protocol work combines Bluetooth captures, hardware measurements and a read of the official Android app's frame builder for interoperability only. No code from the app is in this repository.
+
+AquaLamp is an independent project. It is not affiliated with or endorsed by Week Aqua.
+
+## License
+
+[MIT](LICENSE)
+
 ## Planned
 
 More than one lamp (the transports already take a lamp id), a Raspberry Pi bridge, and mobile packaging.

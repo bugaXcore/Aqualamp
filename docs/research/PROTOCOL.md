@@ -134,7 +134,7 @@ Sunrise was set about 2 minutes ahead, sunset 23:59, and the wall brightness was
 - Fade code 0: on within 12 s at 252, full by 42 s (280), then a slow drift down to 275 over 6 minutes.
 - Fade code 1 (0.5 h): starts at about 55, rises in tiny steps (55.1 to 55.8) for 6 minutes, then jumped to 129 at 379 s. The ramp looks stepped, not smooth.
 - Fade code 2 (1 h): starts at about 56 and stayed at 56.2–56.4 for 6.5 minutes.
-So fade codes 1 and 2 do change the sunrise, and the ramp starts at roughly 20 % of full output. Only the first 6.5 minutes were watched, so the full ramp shape and the sunset fade are still unmeasured. The timer was reset to 11:48 / 18:05, fade 0 afterwards, and the lamp was turned off.
+So fade code 1 changes the sunrise, and the ramp starts at roughly 20 % of full output. Code 2 stayed flat for 6.5 minutes here and for 12 minutes in the overnight test (see below), so it is not confirmed to ramp within that time. Only the first 6.5 minutes were watched, so the full ramp shape and the sunset fade are still unmeasured. The timer was reset to 11:48 / 18:05, fade 0 afterwards, and the lamp was turned off.
 
 ### Passive probes (PC)
 
