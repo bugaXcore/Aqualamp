@@ -68,21 +68,32 @@ describe("schedule", () => {
     assert.deepEqual(w, [{ startMin: 0, endMin: 1440, channels: { red: 40, green: 40, blue: 40, uv: 0 } }]);
   });
 
-  it("puts the cuts at the steps of a stepped curve", () => {
+  it("leaves dark stretches out, so they cost no slot", () => {
     const day = (m: number) => (m >= 480 && m < 1200 ? { red: 80, green: 80, blue: 80, uv: 0 } : { red: 0, green: 0, blue: 0, uv: 0 });
     const w = compileSchedule(day);
     assert.deepEqual(
       w.map((x) => [x.startMin, x.endMin, x.channels.red]),
-      [[0, 480, 0], [480, 1200, 80], [1200, 1440, 0]],
+      [[480, 1200, 80]],
     );
   });
 
-  it("never exceeds five windows and covers the whole day", () => {
+  it("spends all five slots on lit windows when the day has dark stretches", () => {
+    const steps = [0, 20, 40, 60, 80];
+    const day = (m: number) => {
+      if (m < 360 || m >= 1320) return { red: 0, green: 0, blue: 0, uv: 0 };
+      const v = steps[Math.min(4, Math.floor((m - 360) / 192))];
+      return { red: v + 10, green: 0, blue: 0, uv: 0 };
+    };
+    const w = compileSchedule(day);
+    assert.equal(w.length, 5);
+    assert.equal(w[0].startMin, 360);
+    assert.equal(w[4].endMin, 1320);
+  });
+
+  it("never exceeds five windows and keeps them in order", () => {
     const w = compileSchedule((m) => ({ red: Math.round(m / 15) % 100, green: 0, blue: 0, uv: 0 }));
     assert.ok(w.length <= 5);
-    assert.equal(w[0].startMin, 0);
-    assert.equal(w[w.length - 1].endMin, 1440);
-    w.slice(1).forEach((x, i) => assert.equal(x.startMin, w[i].endMin));
+    w.slice(1).forEach((x, i) => assert.ok(x.startMin >= w[i].endMin));
   });
 
   it("programs five slots then switches to advanced mode", async () => {

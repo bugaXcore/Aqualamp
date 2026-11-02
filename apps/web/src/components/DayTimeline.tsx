@@ -8,6 +8,9 @@ import {
   clampMinutes,
   interpolateAt,
   isFreeManualPreset,
+  isOffKey,
+  litKeyCount,
+  MAX_LIT_KEYS,
   minsToTime,
   timeToMins,
   type DayPreset,
@@ -82,6 +85,8 @@ type Props = {
   onSelectKeyframe: (id: string | null) => void;
   onMoveKeyframe: (id: string, minutes: number) => void;
   onAddKeyframe: (minutes: number, channels: Channels) => void;
+  /** Short message shown under the title (limit reached, preset simplified). */
+  notice?: string | null;
   onDeleteKeyframe: (id: string) => void;
   onKeyframeChannelChange: (id: string, key: keyof Channels, value: number) => void;
   onApplySolarRamp?: (input: SolarApplyInput) => void;
@@ -99,18 +104,26 @@ function yFor(value: number): number {
 
 /** Cubic path through nodes, holding edge levels to day bounds. */
 function cubicThrough(
-  nodes: { x: number; y: number }[],
+  nodes: { x: number; y: number; off?: boolean }[],
   sharp = false,
+  wrapOff = false,
 ): string {
   if (nodes.length === 0) return `M 0,${Y0} L ${W},${Y0}`;
   if (nodes.length === 1) {
     const y = nodes[0]!.y;
     return `M 0,${y} L ${W},${y}`;
   }
-  let d = `M 0,${nodes[0]!.y} L ${nodes[0]!.x},${nodes[0]!.y}`;
+  // Before the first key the lamp still follows the last key of the day before.
+  let d = wrapOff
+    ? `M 0,${Y0} L ${nodes[0]!.x},${Y0} L ${nodes[0]!.x},${nodes[0]!.y}`
+    : `M 0,${nodes[0]!.y} L ${nodes[0]!.x},${nodes[0]!.y}`;
   for (let i = 0; i < nodes.length - 1; i++) {
     const p1 = nodes[i]!;
     const p2 = nodes[i + 1]!;
+    if (p1.off) {
+      d += ` L ${p2.x},${p1.y} L ${p2.x},${p2.y}`;
+      continue;
+    }
     if (sharp) {
       d += ` L ${p2.x},${p2.y}`;
       continue;
@@ -173,8 +186,10 @@ function pathForChannel(preset: DayPreset, channel: keyof Channels): string {
       sorted.map((k) => ({
         x: (k.minutes / 1440) * W,
         y: yFor(k.channels[channel]),
+        off: isOffKey(k),
       })),
       preset.curve === "sharp",
+      isOffKey(sorted[sorted.length - 1]!),
     );
   }
   return smoothPolyline(sampleCurve(preset, channel));
@@ -200,6 +215,7 @@ export function DayTimeline({
   onSelectKeyframe,
   onMoveKeyframe,
   onAddKeyframe,
+  notice = null,
   onDeleteKeyframe,
   onKeyframeChannelChange,
   onApplySolarRamp,
@@ -325,6 +341,10 @@ export function DayTimeline({
   const showDescriptionBlock =
     Boolean(preset) && (descriptionEditable || description.length > 0);
 
+  const litKeys = preset ? litKeyCount(preset) : 0;
+  const atKeyLimit = litKeys >= MAX_LIT_KEYS;
+  const keysOver = litKeys > MAX_LIT_KEYS;
+
   const handleAddAtCti = () => {
     if (!preset || !showCtiChrome) return;
     const mins = snappedPlayhead;
@@ -365,6 +385,24 @@ export function DayTimeline({
             24-hour timeline
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-teal-100/50">{hint}</p>
+          {schedule && preset && (
+            <p
+              className={cn(
+                "mt-1 flex flex-wrap items-center gap-x-2 text-[11px] tabular-nums",
+                keysOver
+                  ? "text-amber-200/90"
+                  : atKeyLimit
+                    ? "text-teal-100/80"
+                    : "text-teal-100/50",
+              )}
+              role="status"
+            >
+              <span title="Lit keys use one lamp step each. Off keys are free.">
+                {litKeys} of {MAX_LIT_KEYS} keys
+              </span>
+              {notice && <span className="text-amber-200/90">{notice}</span>}
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 items-start gap-2">
@@ -906,7 +944,11 @@ export function DayTimeline({
               <span aria-hidden className="mx-0.5 h-4 w-px bg-teal-200/15" />
               <button
                 type="button"
-                title="Add keyframe at CTI"
+                title={
+                  atKeyLimit
+                    ? `Limit reached: ${MAX_LIT_KEYS} of ${MAX_LIT_KEYS} keys`
+                    : "Add keyframe at CTI"
+                }
                 aria-label="Add keyframe at CTI"
                 className="flex h-7 w-7 items-center justify-center rounded-full text-teal-100/80 transition hover:bg-teal-400/20 hover:text-teal-50"
                 onClick={handleAddAtCti}

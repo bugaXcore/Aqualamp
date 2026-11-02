@@ -381,6 +381,70 @@ function lerpChannels(a: Channels, b: Channels, t: number): Channels {
   };
 }
 
+/** The lamp can hold this many lit keys per preset (one per schedule slot). */
+export const MAX_LIT_KEYS = 5;
+
+/** An all-zero key switches the lamp off until the next key. It does not use a slot. */
+export function isOffKey(k: Keyframe): boolean {
+  const c = k.channels;
+  return c.red === 0 && c.green === 0 && c.blue === 0 && c.uv === 0;
+}
+
+export function litKeyCount(preset: DayPreset): number {
+  return preset.mode === "schedule"
+    ? preset.keyframes.filter((k) => !isOffKey(k)).length
+    : 0;
+}
+
+/** True when `next` would pass the key limit by adding lit keys to `preset`. */
+export function exceedsKeyLimit(
+  preset: DayPreset,
+  next: Keyframe[],
+): boolean {
+  const lit = next.filter((k) => !isOffKey(k)).length;
+  return lit > MAX_LIT_KEYS && lit > litKeyCount(preset);
+}
+
+/**
+ * Drops the lit keys that change the curve least until the preset fits the
+ * limit. Off keys are free and always stay.
+ */
+export function simplifyToLimit(preset: DayPreset): DayPreset {
+  if (preset.mode !== "schedule" || litKeyCount(preset) <= MAX_LIT_KEYS) {
+    return preset;
+  }
+  const grid = Array.from({ length: 96 }, (_, i) => i * 15);
+  const sample = (p: DayPreset) => grid.map((m) => interpolateAt(p, m));
+  const reference = sample(preset);
+  let keys = preset.keyframes.map((k) => ({
+    ...k,
+    channels: { ...k.channels },
+    ramp: undefined,
+    rampRole: undefined,
+  }));
+  while (keys.filter((k) => !isOffKey(k)).length > MAX_LIT_KEYS) {
+    let worst = Infinity;
+    let drop = -1;
+    keys.forEach((k, i) => {
+      if (isOffKey(k)) return;
+      const rest = keys.filter((_, j) => j !== i);
+      const got = sample({ ...preset, keyframes: rest });
+      let err = 0;
+      for (let s = 0; s < grid.length; s++) {
+        for (const c of ["red", "green", "blue", "uv"] as const) {
+          err += (got[s]![c] - reference[s]![c]) ** 2;
+        }
+      }
+      if (err < worst) {
+        worst = err;
+        drop = i;
+      }
+    });
+    keys = keys.filter((_, i) => i !== drop);
+  }
+  return { ...preset, keyframes: keys };
+}
+
 /** Interpolate schedule keyframes at playhead (wraps midnight). */
 export function interpolateAt(
   preset: DayPreset,
@@ -419,6 +483,8 @@ export function interpolateAt(
     p1Mins = p1.minutes;
     p2Mins = p2.minutes + 1440;
   }
+
+  if (isOffKey(p1)) return { ...ZERO_CHANNELS };
 
   const span = p2Mins - p1Mins;
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;

@@ -19,7 +19,6 @@ import { compileSchedule } from "@aqualamp/core";
 import { IconButton } from "@/components/ui/icon-button";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useKoiControls } from "@/lib/koiControls";
-import { clipWindows, useLampHours, withinHours } from "@/lib/lampHours";
 import { ConnectGuide, explainError } from "@/components/ConnectGuide";
 import { channelsToCss, type Channels } from "@/lib/bridge";
 import {
@@ -33,12 +32,17 @@ import {
   interpolateAt,
   isBuiltinPreset,
   isFreeManualPreset,
+  litKeyCount,
   loadUserPresets,
+  MAX_LIT_KEYS,
   minsToTime,
   newId,
   presetsEqual,
   saveUserPresets,
+  exceedsKeyLimit,
+  simplifyToLimit,
   type DayPreset,
+  type Keyframe,
   type PresetMode,
   type RampKind,
   type SnapMode,
@@ -118,8 +122,14 @@ export default function App() {
   );
   /** The app cannot read the lamp's state, so this only tracks what it last asked for. */
   const [powered, setPowered] = useState(true);
-  const [lampHours] = useLampHours();
-  const hoursKey = JSON.stringify(lampHours);
+  /** Short message under the timeline title (limit reached, preset simplified). */
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef(0);
+  const showNotice = (text: string, ms = 4000) => {
+    setNotice(text);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), ms);
+  };
   const connected = bridge.state === "connected";
   const busy = bridge.state === "connecting" || bridge.state === "scanning";
   const [rememberLamp, setRememberLamp] = useState(
@@ -258,10 +268,7 @@ export default function App() {
     let last = "";
     const send = () => {
       if (Date.now() < resumeAt.current) return;
-      const now = nowMinutes();
-      const channels = withinHours(lampHours, now)
-        ? interpolateAt(playingPreset, now)
-        : { red: 0, green: 0, blue: 0, uv: 0 };
+      const channels = interpolateAt(playingPreset, nowMinutes());
       const key = JSON.stringify(channels);
       if (key === last) return;
       last = key;
@@ -270,15 +277,11 @@ export default function App() {
     send();
     const id = window.setInterval(send, 1000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, playingPreset, runningOnLamp, powered, hoursKey]);
+  }, [connected, playingPreset, runningOnLamp, powered]);
 
   useEffect(() => {
     if (!connected || !runPreset || !powered) return;
-    const windows = clipWindows(
-      compileSchedule((m) => interpolateAt(runPreset, m)),
-      lampHours,
-    );
+    const windows = compileSchedule((m) => interpolateAt(runPreset, m));
     const sig = JSON.stringify([windows, bridge.calibrated]);
     if (sig === localStorage.getItem(LAMP_RUN_SIG_KEY) && bridge.mode === 2) {
       return;
@@ -290,16 +293,15 @@ export default function App() {
     }, wait);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, runPreset, powered, hoursKey, bridge.calibrated, bridge.mode]);
+  }, [connected, runPreset, powered, bridge.calibrated, bridge.mode]);
 
-  const lampSteps = useMemo(() => {
-    if (!runPreset) return 0;
-    return clipWindows(
-      compileSchedule((m) => interpolateAt(runPreset, m)),
-      lampHours,
-    ).length;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runPreset, hoursKey]);
+  const lampSteps = useMemo(
+    () =>
+      runPreset
+        ? compileSchedule((m) => interpolateAt(runPreset, m)).length
+        : 0,
+    [runPreset],
+  );
 
   const endLampRun = () => {
     if (lampRunRef.current === null) return;
@@ -513,6 +515,14 @@ export default function App() {
 
     if (selectedKeyframeId) {
       const nextChannels = { ...local, [key]: value };
+      if (
+        blockedByLimit(
+          selectedPreset.keyframes.map((k) =>
+            k.id === selectedKeyframeId ? { ...k, channels: nextChannels } : k,
+          ),
+        )
+      )
+        return;
       patchPreset(selectedPreset.id, (p) => ({
         ...p,
         keyframes: p.keyframes.map((k) =>
@@ -531,6 +541,20 @@ export default function App() {
       ...(existing?.channels ?? interpolateAt(selectedPreset, minutes)),
       [key]: value,
     };
+    const id = existing?.id ?? newId();
+    if (
+      blockedByLimit(
+        existing
+          ? selectedPreset.keyframes.map((k) =>
+              k.id === existing.id ? { ...k, channels: nextChannels } : k,
+            )
+          : [
+              ...selectedPreset.keyframes,
+              { id, minutes, channels: nextChannels },
+            ],
+      )
+    )
+      return;
     if (existing) {
       patchPreset(selectedPreset.id, (p) => ({
         ...p,
@@ -540,7 +564,6 @@ export default function App() {
       }));
       setSelectedKeyframeId(existing.id);
     } else {
-      const id = newId();
       patchPreset(selectedPreset.id, (p) => ({
         ...p,
         keyframes: [...p.keyframes, { id, minutes, channels: nextChannels }],
@@ -548,6 +571,14 @@ export default function App() {
       setSelectedKeyframeId(id);
     }
     pushToBridge(nextChannels);
+  };
+
+  const blockedByLimit = (next: Keyframe[]) => {
+    if (!selectedPreset || !exceedsKeyLimit(selectedPreset, next)) return false;
+    showNotice(
+      `Limit reached: ${MAX_LIT_KEYS} of ${MAX_LIT_KEYS} keys. Delete one or set a key to off.`,
+    );
+    return true;
   };
 
   const handleCreatePreset = () => {
@@ -631,7 +662,14 @@ export default function App() {
   const handleDuplicate = (id: string) => {
     const source = displayPresets.find((p) => p.id === id);
     if (!source) return;
-    const copy = duplicateAsUserPreset(source);
+    const full = duplicateAsUserPreset(source);
+    const copy = simplifyToLimit(full);
+    if (copy !== full) {
+      showNotice(
+        `Simplified from ${litKeyCount(full)} to ${MAX_LIT_KEYS} keys to fit the lamp.`,
+        8000,
+      );
+    }
     setDrafts((prev) => ({ ...prev, [copy.id]: copy }));
     setSelectedKeyframeId(null);
     enterCompose(copy.id);
@@ -643,8 +681,17 @@ export default function App() {
   };
 
   const handleRequestCompose = (id: string) => {
-    const source = displayPresets.find((p) => p.id === id);
-    if (!source || isBuiltinPreset(source)) return;
+    const original = displayPresets.find((p) => p.id === id);
+    if (!original || isBuiltinPreset(original)) return;
+    const source = simplifyToLimit(original);
+    if (source !== original) {
+      pushHistory(id);
+      setDrafts((prev) => ({ ...prev, [id]: source }));
+      showNotice(
+        `Simplified from ${litKeyCount(original)} to ${MAX_LIT_KEYS} keys to fit the lamp. Undo restores it.`,
+        8000,
+      );
+    }
     enterCompose(id);
     setLocal(
       source.mode === "constant"
@@ -707,6 +754,13 @@ export default function App() {
       return;
     }
     const id = newId();
+    if (
+      blockedByLimit([
+        ...selectedPreset.keyframes,
+        { id, minutes: snapped, channels },
+      ])
+    )
+      return;
     patchPreset(selectedPreset.id, (p) => ({
       ...p,
       keyframes: [...p.keyframes, { id, minutes: snapped, channels }],
@@ -742,6 +796,14 @@ export default function App() {
     const kf = selectedPreset.keyframes.find((k) => k.id === id);
     if (!kf) return;
     const nextChannels = { ...kf.channels, [key]: value };
+    if (
+      blockedByLimit(
+        selectedPreset.keyframes.map((k) =>
+          k.id === id ? { ...k, channels: nextChannels } : k,
+        ),
+      )
+    )
+      return;
     patchPreset(selectedPreset.id, (p) => ({
       ...p,
       keyframes: p.keyframes.map((k) =>
@@ -1079,6 +1141,7 @@ export default function App() {
                 }}
                 onMoveKeyframe={handleMoveKeyframe}
                 onAddKeyframe={handleAddKeyframe}
+                notice={notice}
                 onDeleteKeyframe={handleDeleteKeyframe}
                 onKeyframeChannelChange={handleKeyframeChannelChange}
                 onApplySolarRamp={handleApplySolarRamp}

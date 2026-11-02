@@ -203,3 +203,7 @@ Fade codes (`RR` in the timer frame), 12 min observed each:
 - Stored slots survive off/on frames.
 - The daily-window timer gates mode 1 (dark outside the window) but does not gate mode 2, so the app clips the uploaded slots to its own lamp hours instead.
 - Connecting without the session setup frames (clock only) leaves a running mode-2 schedule untouched.
+
+## Schedule compile: free dark stretches
+
+An all-zero keyframe means lights off until the next key. Dark stretches cost no lamp slot (a gap between slots is dark), so only lit windows count toward the 5-slot limit. The app caps lit keyframes at 5 so the graph and the lamp stay in sync.
