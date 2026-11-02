@@ -113,18 +113,16 @@ Writing rule: only the **latest** value is ever sent; the lamp is never sent a b
 
 A one-line note says the lamp takes ~15 s to ease to a new colour.
 
-### 5.5 Lamp controls (collapsible group)
-Direct controls for the lamp itself. All act on the lamp immediately.
+### 5.5 Header power and Settings: lamp behaviour
+There is no "Lamp controls" group any more.
 
-- **Power:** *Turn on* (the official app's default colour, daily window reset to all day) and *Turn off* (all channels to zero). Includes the note about easing.
-- **Lamp program:** two mutually exclusive options.
-  - *Daily window*: one on-time and off-time, colour set by the sliders. The only mode where sliders are shown.
-  - *Advanced*: the lamp runs its own five-slot schedule.
-  Current mode is shown as pressed/selected.
-- **Daily window:** on-time, off-time, and a **fade** choice (none, 30 min, 1 h, 1 h 30, 2 h, 2 h 30), plus **Save to lamp**. Validation: off must be later than on; the save action is disabled and a message shown otherwise. Note: outside this window the lamp is dark; connecting resets it to all day. (Fade steps are an inferred mapping and only the first step is confirmed on hardware; treat fade as experimental.)
-- **Run a day preset on the lamp:** shows the currently selected preset compiled to at most five time windows (listed as `HH:MM–HH:MM`) and a **Send to lamp** action. Hidden or replaced by guidance when the selection is Sliders mode ("Pick a day preset below to send it to the lamp."). Explains: five slots, one colour each, so a smooth day becomes up to five steps; once sent the lamp runs it by itself, even with the app closed. After sending, the lamp is in Advanced mode.
-- **Even brightness:** a toggle. When on, what is sent to the lamp differs from slider values (the curve is corrected so 50 % looks half as bright). The explanation must say that.
-
+- **Power:** a header icon. Off sends all channels to zero and ends any lamp-run schedule; on restores the lamp (the official app's default colour, then the app resumes the playing preset).
+- **Lamp mode (Settings):** *Hardware* (default) or *App*, with a short pros/cons note for the selected mode only.
+  - *Hardware:* the playing preset is uploaded automatically as at most five lamp steps and the graph is drawn as steps. It keeps running with the app closed.
+  - *App:* the app streams smooth colours while open; the lamp stops following when the app closes. The Smooth/Sharp curve option only appears in this mode.
+- **Even brightness (Settings):** a toggle. When on, what is sent to the lamp differs from slider values (the curve is corrected so 50 % looks half as bright). The explanation must say that.
+- **Background animation (Settings):** a checkbox that turns the koi pond on or off; when on, a cog opens a floating tuning panel (Settings closes so the pond is visible).
+- **Key limit:** only lit keyframes count, at most 5 ("n of 5 keys" counter). An all-zero key means lights off until the next key and costs no lamp slot. Built-ins and over-limit user presets are simplified to 5 on Duplicate or first edit (Undo restores).
 ### 5.6 Day presets panel
 A list of presets plus creation. Each preset has: **name**, **mode** (constant or schedule), **snap** (free minutes or whole hours, schedule only), optional **description**.
 
