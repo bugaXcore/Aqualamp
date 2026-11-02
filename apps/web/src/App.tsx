@@ -566,8 +566,16 @@ export default function App() {
         .length +
       1;
     const preset = createEmptyPreset(`Preset ${n}`);
+    // Coming from the free sliders, the current colour is the starting key.
+    if (
+      selectedPresetId === FREE_MANUAL_PRESET_ID &&
+      Object.values(local).some((v) => v > 0)
+    ) {
+      preset.constantChannels = { ...local };
+      preset.keyframes = [{ id: newId(), minutes: 0, channels: { ...local } }];
+    }
     setDrafts((prev) => ({ ...prev, [preset.id]: preset }));
-    setSelectedKeyframeId(null);
+    setSelectedKeyframeId(preset.keyframes[0]?.id ?? null);
     setLocal({ ...preset.constantChannels });
     enterCompose(preset.id);
   };
