@@ -220,3 +220,11 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - The same wire values sent as a mode-1 colour frame or as a slot-1 colour (00:00-24:00) give the same wall colour. Across red, green, blue (50% and 100%), white, a daily mix and 10% blue, every channel agreed within about 1-4% (the largest gap was white 50%, green 4%), and A-B-B-A order made no difference. UV is not visible to the webcam, so it is not covered.
 - Both paths reach the final colour within the first sample (7-10 s after the write, which includes the BLE connect), so easing does not differ measurably between them.
 - So any difference seen between hardware and app mode in the UI comes from the app side (graph, calibration, streaming against holds), not from how the lamp renders the two modes.
+
+### Persistence and fade code 3 (2026-11-02)
+
+- Closing the browser tab (preset 1 playing in hardware mode): wall colour steady for 60 s. The bridge ignores client closes and the app has no unload handler.
+- Killing the bridge and sidecar: the lamp kept running its stored schedule (45 s watched, steady).
+- Fade code 3, 50 min with the timer starting at the base time: wall sum about 6 (off) before start, then stepped plateaus rather than a smooth ramp: about 52 from 0 s, about 222 from about 7 min, about 348 from about 18 min, about 424 from about 36 min, holding to 50 min. Plateaus drift down by about 1%.
+- `tools/hwtest/wall_watch.py` prints the wall colour passively.
+- Not tested: a lamp power cut (needs a physical unplug), UV, fade codes 2 and 4 over long runs.
