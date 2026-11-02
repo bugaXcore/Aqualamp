@@ -457,9 +457,17 @@ export function interpolateAt(
 
   const sorted = [...preset.keyframes].sort((a, b) => a.minutes - b.minutes);
   if (sorted.length === 0) return { ...ZERO_CHANNELS };
-  if (sorted.length === 1) return { ...sorted[0]!.channels };
 
   const t = ((Math.round(timeMins) % 1440) + 1440) % 1440;
+
+  // Hardware steps are a plain day: dark before the first key, each key holds until the next.
+  if (getLampMode() === "hardware") {
+    let held: (typeof sorted)[number] | undefined;
+    for (const k of sorted) if (k.minutes <= t) held = k;
+    return !held || isOffKey(held) ? { ...ZERO_CHANNELS } : { ...held.channels };
+  }
+
+  if (sorted.length === 1) return { ...sorted[0]!.channels };
 
   let p1 = sorted[sorted.length - 1]!;
   let p2 = sorted[0]!;
@@ -488,7 +496,6 @@ export function interpolateAt(
   if (isOffKey(p1)) return { ...ZERO_CHANNELS };
 
   const span = p2Mins - p1Mins;
-  if (getLampMode() === "hardware") return { ...p1.channels };
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;
   const progress =
     preset.curve === "sharp" ? linear : linear * linear * (3 - 2 * linear);
