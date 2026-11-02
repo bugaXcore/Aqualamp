@@ -5,6 +5,21 @@ import { THEMES, useTheme } from "@/lib/themes";
 import { useKoiControls } from "@/lib/koiControls";
 import { useLampMode, type LampMode } from "@/lib/lampMode";
 
+const MODE_INFO: { id: LampMode; title: string; pros: string; cons: string }[] = [
+  {
+    id: "hardware",
+    title: "Hardware",
+    pros: "Runs on the lamp itself, so it keeps going with the app closed or the PC off. The graph matches what the lamp does.",
+    cons: "Colours change in steps (up to 5), not smooth fades.",
+  },
+  {
+    id: "app",
+    title: "App",
+    pros: "Smooth fades and curves between keys.",
+    cons: "The app must stay open and connected. When it closes, the lamp holds its last colour.",
+  },
+];
+
 /**
  * Gear button plus its menu. One element, two presentations (see .settings-panel in
  * index.css): an anchored popover from the `sm` breakpoint up, a bottom sheet on phones.
@@ -130,11 +145,7 @@ export function SettingsMenu({
           <label htmlFor={modeId} className="settings-row">
             <span className="settings-row-text">
               <span className="font-medium">Lamp mode</span>
-              <span className="settings-hint">
-                {lampMode === "hardware"
-                  ? "Steps the lamp runs by itself, even with the app closed."
-                  : "Smooth fades while the app is open. The lamp stops following when you close it."}
-              </span>
+              <span className="settings-hint">How presets run on the lamp</span>
             </span>
             <span className="settings-select-wrap">
               <select
@@ -148,6 +159,21 @@ export function SettingsMenu({
               </select>
             </span>
           </label>
+          <ul className="settings-hint mb-2 space-y-2" aria-label="Lamp mode details">
+            {MODE_INFO.map((m) => (
+              <li
+                key={m.id}
+                className={m.id === lampMode ? "text-teal-50" : "opacity-60"}
+              >
+                <span className="font-medium">
+                  {m.title}
+                  {m.id === lampMode ? " (selected)" : ""}
+                </span>
+                <span className="block">+ {m.pros}</span>
+                <span className="block">− {m.cons}</span>
+              </li>
+            ))}
+          </ul>
           <label htmlFor={calId} className="settings-row">
             <span className="settings-row-text">
               <span className="font-medium">Even brightness</span>
