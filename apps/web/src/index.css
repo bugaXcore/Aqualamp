@@ -86,6 +86,12 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--t-muted) 55%, var(--t-border)) transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--t-accent) transparent;
 }
 
 html,
