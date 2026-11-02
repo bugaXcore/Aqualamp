@@ -230,3 +230,4 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - Not tested: a lamp power cut (needs a physical unplug), UV, fade codes 2 and 4 over long runs.
 - Lamp power cut (unplugged about 55 s, replugged): the stored all-day blue slot in mode 2 came back by itself about 5 s after power returned, with no app or bridge connected. Schedules survive power loss (a window-based slot was not tested against the clock, which the lamp loses until it is set again).
 - UV (tools/hwtest/uv_test.py): only the UV byte set to 25/50/100% moved the webcam wall reading by under 0.1 (dark 5.8, UV 100% 5.9). The webcam cannot see the UV channel, so UV output is unverified by camera; check by eye or with a fluorescent object.
+- UV confirmed by eye (user, 2026-11-03): a mode-1 frame with only the 4th colour byte set to FF turns the UV emitter on, so that byte is UV. The webcam still cannot see it.
