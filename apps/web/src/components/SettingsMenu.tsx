@@ -3,6 +3,7 @@ import { ChevronDown, Settings } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { THEMES, useTheme } from "@/lib/themes";
 import { useKoiControls } from "@/lib/koiControls";
+import { useLampMode, type LampMode } from "@/lib/lampMode";
 
 /**
  * Gear button plus its menu. One element, two presentations (see .settings-panel in
@@ -25,6 +26,8 @@ export function SettingsMenu({
   const themeId = useId();
   const koiId = useId();
   const calId = useId();
+  const modeId = useId();
+  const [lampMode, setLampMode] = useLampMode();
   const [koiControls, setKoiControls] = useKoiControls();
 
   const close = (returnFocus: boolean) => {
@@ -123,6 +126,27 @@ export function SettingsMenu({
               checked={koiControls}
               onChange={(e) => setKoiControls(e.target.checked)}
             />
+          </label>
+          <label htmlFor={modeId} className="settings-row">
+            <span className="settings-row-text">
+              <span className="font-medium">Lamp mode</span>
+              <span className="settings-hint">
+                {lampMode === "hardware"
+                  ? "Steps the lamp runs by itself, even with the app closed."
+                  : "Smooth fades while the app is open. The lamp stops following when you close it."}
+              </span>
+            </span>
+            <span className="settings-select-wrap">
+              <select
+                id={modeId}
+                className="settings-select"
+                value={lampMode}
+                onChange={(e) => setLampMode(e.target.value as LampMode)}
+              >
+                <option value="hardware">Hardware</option>
+                <option value="app">App</option>
+              </select>
+            </span>
           </label>
           <label htmlFor={calId} className="settings-row">
             <span className="settings-row-text">

@@ -1,4 +1,5 @@
 import type { Channels } from "@/lib/bridge";
+import { getLampMode } from "@/lib/lampMode";
 
 export type PresetMode = "constant" | "schedule";
 export type SnapMode = "free" | "quarter" | "half" | "hour";
@@ -487,6 +488,7 @@ export function interpolateAt(
   if (isOffKey(p1)) return { ...ZERO_CHANNELS };
 
   const span = p2Mins - p1Mins;
+  if (getLampMode() === "hardware") return { ...p1.channels };
   const linear = span <= 0 ? 0 : (t - p1Mins) / span;
   const progress =
     preset.curve === "sharp" ? linear : linear * linear * (3 - 2 * linear);

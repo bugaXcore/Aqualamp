@@ -20,6 +20,7 @@ import {
 } from "@/lib/presets";
 import { listLinkedRamps, type SolarApplyInput } from "@/lib/ramps";
 import { cn } from "@/lib/utils";
+import { getLampMode, useLampMode } from "@/lib/lampMode";
 
 const W = 1000;
 const H = 140;
@@ -107,6 +108,7 @@ function cubicThrough(
   nodes: { x: number; y: number; off?: boolean }[],
   sharp = false,
   wrapOff = false,
+  stepped = false,
 ): string {
   if (nodes.length === 0) return `M 0,${Y0} L ${W},${Y0}`;
   if (nodes.length === 1) {
@@ -114,13 +116,13 @@ function cubicThrough(
     return `M 0,${y} L ${W},${y}`;
   }
   // Before the first key the lamp still follows the last key of the day before.
-  let d = wrapOff
-    ? `M 0,${Y0} L ${nodes[0]!.x},${Y0} L ${nodes[0]!.x},${nodes[0]!.y}`
-    : `M 0,${nodes[0]!.y} L ${nodes[0]!.x},${nodes[0]!.y}`;
+  const lastNode = nodes[nodes.length - 1]!;
+  const startY = stepped ? (wrapOff ? Y0 : lastNode.y) : wrapOff ? Y0 : nodes[0]!.y;
+  let d = `M 0,${startY} L ${nodes[0]!.x},${startY} L ${nodes[0]!.x},${nodes[0]!.y}`;
   for (let i = 0; i < nodes.length - 1; i++) {
     const p1 = nodes[i]!;
     const p2 = nodes[i + 1]!;
-    if (p1.off) {
+    if (p1.off || stepped) {
       d += ` L ${p2.x},${p1.y} L ${p2.x},${p2.y}`;
       continue;
     }
@@ -190,6 +192,7 @@ function pathForChannel(preset: DayPreset, channel: keyof Channels): string {
       })),
       preset.curve === "sharp",
       isOffKey(sorted[sorted.length - 1]!),
+      getLampMode() === "hardware",
     );
   }
   return smoothPolyline(sampleCurve(preset, channel));
@@ -223,6 +226,7 @@ export function DayTimeline({
   onDescriptionChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [lampMode] = useLampMode();
   const [hiddenCurves, setHiddenCurves] = useState<Record<string, boolean>>(
     () => {
       try {
@@ -410,6 +414,7 @@ export function DayTimeline({
             <TimelineMenu
               snap={preset.snap}
               curve={preset.curve ?? "smooth"}
+              showCurve={lampMode === "app"}
               shiftMinutes={shiftMinutes}
               keyCount={preset.keyframes.length}
               canReset={canReset}

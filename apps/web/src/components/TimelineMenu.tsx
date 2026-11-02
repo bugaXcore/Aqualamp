@@ -13,6 +13,7 @@ export type MenuChannel = { key: string; label: string; color: string };
 type Props = {
   snap: SnapMode;
   curve: CurveStyle;
+  showCurve?: boolean;
   /** Net shift applied to this draft, in minutes (wrapped to -720..720). */
   shiftMinutes: number;
   keyCount: number;
@@ -83,6 +84,7 @@ const Heading = ({ children }: { children: string }) => (
 export function TimelineMenu({
   snap,
   curve,
+  showCurve = true,
   shiftMinutes,
   keyCount,
   canReset,
@@ -206,19 +208,22 @@ export function TimelineMenu({
 
           <div className="my-1.5 border-t border-teal-200/10" />
 
-          <div className="mb-1">
-            <Heading>Curve</Heading>
-          </div>
-          <Segmented<CurveStyle>
-            label="Curve shape"
-            value={curve}
-            onChange={onCurveChange}
-            options={[
-              { value: "smooth", label: "Smooth" },
-              { value: "sharp", label: "Sharp" },
-            ]}
-          />
-
+          {showCurve && (
+            <>
+              <div className="mb-1">
+                <Heading>Curve</Heading>
+              </div>
+              <Segmented<CurveStyle>
+                label="Curve shape"
+                value={curve}
+                onChange={onCurveChange}
+                options={[
+                  { value: "smooth", label: "Smooth" },
+                  { value: "sharp", label: "Sharp" },
+                ]}
+              />
+            </>
+          )}
           <div className="mt-1.5 mb-1">
             <Heading>Show curves</Heading>
           </div>

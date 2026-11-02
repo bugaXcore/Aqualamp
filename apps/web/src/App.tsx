@@ -19,6 +19,7 @@ import { compileSchedule } from "@aqualamp/core";
 import { IconButton } from "@/components/ui/icon-button";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useKoiControls } from "@/lib/koiControls";
+import { useLampMode } from "@/lib/lampMode";
 import { ConnectGuide, explainError } from "@/components/ConnectGuide";
 import { channelsToCss, type Channels } from "@/lib/bridge";
 import {
@@ -56,7 +57,6 @@ import {
 
 const PLAYING_KEY = "aqualamp.playingPreset";
 /** Preset the lamp runs on its own (five-step schedule) while the app is closed. */
-const LAMP_RUN_KEY = "aqualamp.lampRunPreset";
 /** Last schedule uploaded for that preset, so reconnecting does not rewrite an identical one. */
 const LAMP_RUN_SIG_KEY = "aqualamp.lampRunSig";
 
@@ -116,12 +116,17 @@ export default function App() {
     Record<string, { preset: DayPreset; shift: number }[]>
   >({});
   const lastHistoryPush = useRef({ id: "", t: 0 });
-  /** Preset running on the lamp's own schedule. Always the same as the playing preset. */
-  const [lampRunId, setLampRunId] = useState<string | null>(() =>
-    localStorage.getItem(LAMP_RUN_KEY),
-  );
   /** The app cannot read the lamp's state, so this only tracks what it last asked for. */
   const [powered, setPowered] = useState(true);
+  const [lampMode] = useLampMode();
+  /** Hardware mode: the lamp runs the playing preset on its own schedule, even with the app closed. */
+  const lampRunId =
+    lampMode === "hardware" &&
+    powered &&
+    playingId !== null &&
+    playingId !== FREE_MANUAL_PRESET_ID
+      ? playingId
+      : null;
   /** Short message under the timeline title (limit reached, preset simplified). */
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef(0);
@@ -245,11 +250,6 @@ export default function App() {
     return ids;
   }, [drafts, savedUserPresets]);
 
-  useEffect(() => {
-    if (lampRunId) localStorage.setItem(LAMP_RUN_KEY, lampRunId);
-    else localStorage.removeItem(LAMP_RUN_KEY);
-  }, [lampRunId]);
-
   const runPreset = useMemo(() => {
     if (!lampRunId) return null;
     return (
@@ -295,39 +295,26 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, runPreset, powered, bridge.calibrated, bridge.mode]);
 
-  const lampSteps = useMemo(
-    () =>
-      runPreset
-        ? compileSchedule((m) => interpolateAt(runPreset, m)).length
-        : 0,
-    [runPreset],
-  );
-
   const endLampRun = () => {
     if (lampRunRef.current === null) return;
-    setLampRunId(null);
     localStorage.removeItem(LAMP_RUN_SIG_KEY);
     if (connected) bridge.setMode(1);
   };
 
-  const loadedPresets = useRef(false);
+  // Leaving hardware mode hands the lamp back to the app's own colour stream.
+  const prevRunId = useRef(lampRunId);
+  useEffect(() => {
+    if (prevRunId.current !== null && lampRunId === null && powered) {
+      localStorage.removeItem(LAMP_RUN_SIG_KEY);
+      if (connected) bridge.setMode(1);
+    }
+    prevRunId.current = lampRunId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lampRunId]);
+
   useEffect(() => {
     if (connected) setPowered(true);
   }, [connected]);
-  useEffect(() => {
-    if (!loadedPresets.current) {
-      loadedPresets.current = true;
-      return;
-    }
-    if (
-      lampRunId &&
-      !BUILTIN_PRESETS.some((p) => p.id === lampRunId) &&
-      !savedUserPresets.some((p) => p.id === lampRunId)
-    ) {
-      endLampRun();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedUserPresets]);
 
   const wakeLamp = () => {
     if (powered) return;
@@ -339,7 +326,6 @@ export default function App() {
   const handlePower = () => {
     if (powered) {
       setPowered(false);
-      setLampRunId(null);
       localStorage.removeItem(LAMP_RUN_SIG_KEY);
       bridge.power(false);
       return;
@@ -348,16 +334,6 @@ export default function App() {
     if (playingId === FREE_MANUAL_PRESET_ID) {
       window.setTimeout(() => bridge.setChannels(local), 2500);
     }
-  };
-
-  const handleLampRunChange = (id: string, on: boolean) => {
-    if (!on) {
-      endLampRun();
-      return;
-    }
-    wakeLamp();
-    setPlayingId(id);
-    setLampRunId(id);
   };
 
   useEffect(() => {
@@ -379,7 +355,7 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedPreset) return;
-    /** Sliders mode is user-driven — never overwrite local from playhead ticks. */
+    /** Sliders mode is user-driven Ã¢â‚¬â€ never overwrite local from playhead ticks. */
     if (isFreeManualPreset(selectedPreset)) return;
     if (isPlayback) {
       setLocal(interpolateAt(selectedPreset, playheadMinutes));
@@ -429,7 +405,6 @@ export default function App() {
       return;
     }
     if (!BUILTIN_PRESETS.some((p) => p.id === id) && !savedUserPresets.some((p) => p.id === id)) return;
-    if (id !== lampRunId) endLampRun();
     wakeLamp();
     setPlayingId(id);
   };
@@ -853,42 +828,42 @@ export default function App() {
 
   const sliderHint = (() => {
     if (isFreeManual) {
-      return "Sliders mode — drag R/G/B/UV anytime · day presets below for schedules.";
+      return "Sliders mode Ã¢â‚¬â€ drag R/G/B/UV anytime Ã‚Â· day presets below for schedules.";
     }
     if (isPlayback) {
       if (!selectedPreset) {
-        return "Nothing selected · tap a preset to preview it.";
+        return "Nothing selected Ã‚Â· tap a preset to preview it.";
       }
       const onLamp = selectedPreset.id === playingId;
       const when = scrubbed ? minsToTime(playheadMinutes) : "now";
       if (onLamp) {
         return scrubbed
-          ? `Playing on the lamp · previewing ${when} · tap the preset to return to now.`
+          ? `Playing on the lamp Ã‚Â· previewing ${when} Ã‚Â· tap the preset to return to now.`
           : "Playing on the lamp.";
       }
-      return `Previewing ${when} — not on the lamp · press play to send it.`;
+      return `Previewing ${when} Ã¢â‚¬â€ not on the lamp Ã‚Â· press play to send it.`;
     }
-    if (!selectedPreset) return "Manual mix — no day preset selected.";
+    if (!selectedPreset) return "Manual mix Ã¢â‚¬â€ no day preset selected.";
     if (compositionLocked) {
-      return "Built-in preset — read-only · Duplicate to compose.";
+      return "Built-in preset Ã¢â‚¬â€ read-only Ã‚Â· Duplicate to compose.";
     }
     if (dirty) {
       return selectedPreset.mode === "constant"
-        ? "Composing draft — sliders edit constant levels · Save or Cancel."
-        : `Composing draft — scrubbing ${minsToTime(playheadMinutes)} · Save or Cancel.`;
+        ? "Composing draft Ã¢â‚¬â€ sliders edit constant levels Ã‚Â· Save or Cancel."
+        : `Composing draft Ã¢â‚¬â€ scrubbing ${minsToTime(playheadMinutes)} Ã‚Â· Save or Cancel.`;
     }
     if (selectedPreset.mode === "constant") {
-      return "Composing — constant levels · Save to keep.";
+      return "Composing Ã¢â‚¬â€ constant levels Ã‚Â· Save to keep.";
     }
     if (selectedKeyframeId) {
       const kf = selectedPreset.keyframes.find(
         (k) => k.id === selectedKeyframeId,
       );
-      if (!kf) return "Composing — keyframe.";
+      if (!kf) return "Composing Ã¢â‚¬â€ keyframe.";
       const label = kf.label ? ` (${kf.label})` : "";
-      return `Composing — keyframe at ${minsToTime(kf.minutes)}${label} · Save to keep.`;
+      return `Composing Ã¢â‚¬â€ keyframe at ${minsToTime(kf.minutes)}${label} Ã‚Â· Save to keep.`;
     }
-    return `Composing — scrubbing ${minsToTime(playheadMinutes)} · sliders write a keyframe · Save to keep.`;
+    return `Composing Ã¢â‚¬â€ scrubbing ${minsToTime(playheadMinutes)} Ã‚Â· sliders write a keyframe Ã‚Â· Save to keep.`;
   })();
 
   const mix = channelsToCss(local);
@@ -978,7 +953,7 @@ export default function App() {
         {!connected ? (
           <section className="hero-enter flex flex-1 flex-col items-center justify-center text-center">
             <p className="max-w-md text-base leading-relaxed text-teal-100/70 sm:text-lg">
-              Balance your Week Aqua light — cool channels, clear water light.
+              Balance your Week Aqua light Ã¢â‚¬â€ cool channels, clear water light.
             </p>
             <div className="mt-10 flex flex-col items-center gap-3">
               <Button
@@ -987,7 +962,7 @@ export default function App() {
                 disabled={!bridge.socketOpen || busy}
                 onClick={startConnect}
               >
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? "ConnectingÃ¢â‚¬Â¦" : "Connect"}
               </Button>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-teal-100/70">
                 <input
@@ -1006,7 +981,7 @@ export default function App() {
               {retry.retrying && (
                 <p className="max-w-sm text-sm text-teal-100/70" role="status">
                   {busy
-                    ? `Attempt ${retry.attempt} of ${retry.maxAttempts}…`
+                    ? `Attempt ${retry.attempt} of ${retry.maxAttempts}Ã¢â‚¬Â¦`
                     : `Trying again shortly (attempt ${Math.min(retry.attempt + 1, retry.maxAttempts)} of ${retry.maxAttempts}).`}
                   <button
                     type="button"
@@ -1027,7 +1002,7 @@ export default function App() {
                 </button>
               )}
               {!bridge.socketOpen && !bridge.bridgeError && (
-                <p className="text-sm text-teal-100/50">Reaching bridge…</p>
+                <p className="text-sm text-teal-100/50">Reaching bridgeÃ¢â‚¬Â¦</p>
               )}
               <ConnectGuide viaBridge={useTransport === useBridge} />
             </div>
@@ -1054,9 +1029,6 @@ export default function App() {
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
               <PresetsPanel
-                lampRunId={lampRunId}
-                lampSteps={lampSteps}
-                onLampRunChange={handleLampRunChange}
                 presets={displayPresets}
                 selectedId={selectedPresetId}
                 dirty={dirty}

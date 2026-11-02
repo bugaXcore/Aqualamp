@@ -207,3 +207,7 @@ Fade codes (`RR` in the timer frame), 12 min observed each:
 ## Schedule compile: free dark stretches
 
 An all-zero keyframe means lights off until the next key. Dark stretches cost no lamp slot (a gap between slots is dark), so only lit windows count toward the 5-slot limit. The app caps lit keyframes at 5 so the graph and the lamp stay in sync.
+
+## App modes
+
+Hardware mode (default): the playing preset is always uploaded as lamp steps (mode 2) and graphed as holds, so it keeps running with the app closed. App mode: the app streams smooth colours while open; the lamp stops following when the app closes.

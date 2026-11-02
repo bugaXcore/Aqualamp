@@ -17,12 +17,12 @@ type Props = {
   dirty: boolean;
   /** Selected preset exists in committed storage (false = never saved). */
   selectedIsCommitted: boolean;
-  /** Compose session for selected user preset — shows mode/snap/Save chrome. */
+  /** Compose session for selected user preset â€” shows mode/snap/Save chrome. */
   composing?: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
-  /** Pencil / edit — enter compose on a user preset. */
+  /** Pencil / edit â€” enter compose on a user preset. */
   onRequestCompose: (id: string) => void;
   onDelete: (id: string) => void;
   onModeChange: (id: string, mode: PresetMode) => void;
@@ -36,11 +36,6 @@ type Props = {
   /** Drafts that were never saved cannot be played. */
   neverSavedIds: Set<string>;
   onPlay: (id: string) => void;
-  /** Preset running on the lamp's own schedule, if any. */
-  lampRunId: string | null;
-  /** Steps in the schedule uploaded for that preset. */
-  lampSteps: number;
-  onLampRunChange: (id: string, on: boolean) => void;
 };
 
 export function PresetsPanel({
@@ -63,9 +58,6 @@ export function PresetsPanel({
   playingId,
   neverSavedIds,
   onPlay,
-  lampRunId,
-  lampSteps,
-  onLampRunChange,
 }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -98,8 +90,8 @@ export function PresetsPanel({
           </h3>
           <p className="mt-1 text-xs text-teal-100/50">
             {composing
-              ? "Composing draft · Save or Cancel when done."
-              : "Tap to preview · press play to send to the lamp."}
+              ? "Composing draft Â· Save or Cancel when done."
+              : "Tap to preview Â· press play to send to the lamp."}
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={onCreate}>
@@ -304,28 +296,6 @@ export function PresetsPanel({
                       </button>
                     )}
                   </div>
-
-                  {active && !freeManual && !neverSaved && renamingId !== preset.id && (
-                    <label
-                      className="mt-1.5 flex cursor-pointer items-start gap-2 text-[11px] text-teal-100/70"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 accent-teal-300"
-                        checked={lampRunId === preset.id}
-                        onChange={(e) => onLampRunChange(preset.id, e.target.checked)}
-                      />
-                      <span>
-                        Keep running when app is closed
-                        {lampRunId === preset.id && (
-                          <span className="block text-teal-100/50">
-                            {lampSteps} {lampSteps === 1 ? "step" : "steps"} · runs on the lamp
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  )}
 
                   {showUserChrome && (
                     <div
