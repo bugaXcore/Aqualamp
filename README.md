@@ -32,7 +32,7 @@ $env:AQUALAMP_MOCK="0"
 npm run bridge
 ```
 
-`LIGHT_ADDRESS` is optional. Without it the sidecar scans for a lamp named `B3.0-…`.
+`LIGHT_ADDRESS` is optional. Without it the sidecar scans for a lamp named `B3.0-…`. The Python scripts in `tools/hwtest` and the capture helpers in `scripts` do need it: set it in your shell first (`$env:LIGHT_ADDRESS = "AA:BB:..."`).
 
 **Option B: Web Bluetooth from the browser** (Chrome or Edge on localhost or HTTPS)
 

@@ -2,7 +2,7 @@ import asyncio, concurrent.futures, os, json, datetime
 import cv2, numpy as np
 from bleak import BleakScanner, BleakClient
 
-ADDR = "C8:47:80:70:BB:07"
+ADDR = __import__("os").environ["LIGHT_ADDRESS"]  # set in .env
 W = "0000fff2-0000-1000-8000-00805f9b34fb"
 OUT = r"C:\Users\bugas\AppData\Local\Temp\lampcam"
 ex = concurrent.futures.ThreadPoolExecutor(1)

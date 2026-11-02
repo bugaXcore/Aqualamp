@@ -24,7 +24,7 @@ Set-Location $RepoRoot
 if ($Off) { $Red = 0 }
 
 Write-Host "AquaLamp live CLI helper" -ForegroundColor Cyan
-Write-Host "  Target MAC : C8:47:80:70:BB:07"
+Write-Host ("  Target MAC : " + $env:LIGHT_ADDRESS)
 Write-Host "  Service    : FFF0"
 Write-Host "  Char       : FFF2 (write without response)"
 Write-Host "  Red        : $Red  (wire = round(red*235/100))"
@@ -38,7 +38,7 @@ if ($WhatIfEncodeOnly) { exit 0 }
 
 # Force process env so .env placeholders (XX:XX / MOCK=1) cannot win.
 # loadEnvFile does not override existing keys; npm children inherit these.
-$env:LIGHT_ADDRESS = "C8:47:80:70:BB:07"
+if (-not $env:LIGHT_ADDRESS) { throw "Set LIGHT_ADDRESS to your lamp's Bluetooth address first." }
 $env:SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 $env:CHARACTERISTIC_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
 $env:AQUALAMP_AUTO_RECONNECT = "0"

@@ -1,6 +1,6 @@
 /**
  * Parse a capture folder (or any btsnoop/btsnooz log) for Week Aqua ATT writes.
- * Target MAC C8:47:80:70:BB:07 / write handle 0x0010.
+ * Target MAC from LIGHT_ADDRESS / write handle 0x0010.
  *
  * Usage:
  *   node scripts/parse-capture.mjs [path-to-capture-dir-or-log]
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 
-const TARGET_MAC = "c8:47:80:70:bb:07";
+const TARGET_MAC = (process.env.LIGHT_ADDRESS ?? "00:00:00:00:00:00").toLowerCase();
 const TARGET_HANDLE = 0x0010;
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CAPTURES = path.join(REPO, "files", "captures");
@@ -346,7 +346,6 @@ function analyze(packets) {
       label: labelPayload(valueHex),
       towardTarget:
         mac === TARGET_MAC ||
-        mac.endsWith("bb:07") ||
         handle === TARGET_HANDLE,
     };
     allWrites.push(row);
@@ -366,7 +365,7 @@ function analyze(packets) {
 }
 
 function isTargetMac(m) {
-  return m === TARGET_MAC || (m && m.endsWith("bb:07"));
+  return m === TARGET_MAC;
 }
 
 function writeReport(outDir, analysis, logFiles) {

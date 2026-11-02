@@ -232,7 +232,7 @@ try {
 $manifest = [ordered]@{
   createdAt = (Get-Date).ToString("o")
   outDir = $OutDir
-  lightMac = "C8:47:80:70:BB:07"
+  lightMac = $env:LIGHT_ADDRESS
   lightName = "B3.0-S300pro-03"
   checklist = @(
     "CustomMode Red (or Red 0 then 100)",

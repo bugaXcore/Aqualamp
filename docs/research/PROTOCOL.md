@@ -112,7 +112,7 @@ Power, custom-mode, schedule, and master-brightness frames remain unverified her
 
 ## Hardware tests from the PC (Windows dongle + locked webcam)
 
-Setup: Bleak on Windows over a USB dongle, with the lamp within about 30 cm. At normal distance the dongle does not see the lamp, while the phone does. The lamp's public address is `C8:47:80:70:BB:07`. A Logitech C925e watched a white wall near the lamp with white balance, exposure and gain locked, and each command was followed by an 8 s settle time. Values below are mean wall RGB (0–255), only meaningful relative to each other.
+Setup: Bleak on Windows over a USB dongle, with the lamp within about 30 cm. At normal distance the dongle does not see the lamp, while the phone does. The lamp's public address is `XX:XX:XX:XX:XX:XX` (redacted). A Logitech C925e watched a white wall near the lamp with white balance, exposure and gain locked, and each command was followed by an 8 s settle time. Values below are mean wall RGB (0–255), only meaningful relative to each other.
 
 Verified on the lamp:
 - Power on (`FD F1`, `FB F9 79 DF 74 EB`, `FE F9 00 00 24 00 00 00`) and power off (`FB F9 00 00 00 00`) work.
