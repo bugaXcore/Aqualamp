@@ -44,6 +44,7 @@ export function SettingsMenu({
   const calId = useId();
   const modeId = useId();
   const [lampMode, setLampMode] = useLampMode();
+  const activeMode = MODE_INFO.find((m) => m.id === lampMode) ?? MODE_INFO[0]!;
   const [, setKoiControls] = useKoiControls();
   const { settings: ascii, update } = useAsciiSettings();
 
@@ -181,21 +182,13 @@ export function SettingsMenu({
               </select>
             </span>
           </label>
-          <ul className="settings-hint mb-2 space-y-2" aria-label="Lamp mode details">
-            {MODE_INFO.map((m) => (
-              <li
-                key={m.id}
-                className={m.id === lampMode ? "text-teal-50" : "opacity-60"}
-              >
-                <span className="font-medium">
-                  {m.title}
-                  {m.id === lampMode ? " (selected)" : ""}
-                </span>
-                <span className="block">+ {m.pros}</span>
-                <span className="block">− {m.cons}</span>
-              </li>
-            ))}
-          </ul>
+          <div
+            className="settings-hint mb-2 space-y-0.5 px-3"
+            aria-label="Lamp mode details"
+          >
+            <span className="block">+ {activeMode.pros}</span>
+            <span className="block">− {activeMode.cons}</span>
+          </div>
           <label htmlFor={calId} className="settings-row">
             <span className="settings-row-text">
               <span className="font-medium">Even brightness</span>
