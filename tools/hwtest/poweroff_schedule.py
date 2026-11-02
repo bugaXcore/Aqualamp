@@ -15,13 +15,13 @@ import asyncio, datetime as dt, os, sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from night import (  # noqa: E402
-    ALWAYS_ON, MODE1, MODE2, OFF, cam_open, clock_frame, log, observe, restore_quiet,
+    ALWAYS_ON, MODE1, MODE2, OFF, cam_open, clock_frame, ex, log, observe, restore_quiet,
     session, slot_color, slot_window,
 )
 
 
 async def main():
-    cam_open()
+    await asyncio.get_running_loop().run_in_executor(ex, cam_open)
     rows = []
 
     async def setup(send):
