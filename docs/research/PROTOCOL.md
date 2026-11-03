@@ -231,3 +231,11 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - Lamp power cut (unplugged about 55 s, replugged): the stored all-day blue slot in mode 2 came back by itself about 5 s after power returned, with no app or bridge connected. Schedules survive power loss (a window-based slot was not tested against the clock, which the lamp loses until it is set again).
 - UV (tools/hwtest/uv_test.py): only the UV byte set to 25/50/100% moved the webcam wall reading by under 0.1 (dark 5.8, UV 100% 5.9). The webcam cannot see the UV channel, so UV output is unverified by camera; check by eye or with a fluorescent object.
 - UV confirmed by eye (user, 2026-11-03): a mode-1 frame with only the 4th colour byte set to FF turns the UV emitter on, so that byte is UV. The webcam still cannot see it.
+
+### Fade codes 2 and 4, long runs (2026-11-03)
+
+`tools/hwtest/fade_long.py 50 2 4`. Both are stepped plateaus (wall sum, off is about 6), not smooth ramps, like code 3. They differ only in step length:
+- Code 2: about 51 at the start, then steps about every 12 min: about 118 (12 min), 170 (24 min), 180 then 214 (36 min), 240 (48 min).
+- Code 3 (earlier run): steps at about 7, 18 and 36 min.
+- Code 4: about 50 at the start, then steps about every 24 min: about 118 (24 min), 170 (48 min).
+- Each plateau drifts down by about 1%. The final step levels (about 240 at 48 min) are well below the full-brightness level, so the fade is a long ramp that the 50 min runs only partly cover.
