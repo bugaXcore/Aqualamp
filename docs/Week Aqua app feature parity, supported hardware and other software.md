@@ -2,13 +2,13 @@
 
 Nov 2, 2026 · @Stav
 
-A sale to Week Aqua is unlikely, but a barter of one to three lamps is realistic if you fix three things first: add a license and a clean demo to the repo, decide how you describe the decompilation step, and support at least one more lamp family. The official app is rated 2.5 on iOS and 3.4 on Google Play, with repeated complaints about ramps and settings that reset, so a working alternative backed by measurements gives you something concrete to offer. Below: where things stand, how to approach the company, the legal flag, what the official app supports, and what is still missing.
+A sale to Week Aqua is unlikely, but a barter of one to three lamps is realistic if you fix two things first: add a clean demo to the repo (the MIT license is in), decide how you describe the decompilation step, and support at least one more lamp family. The official app is rated 2.5 on iOS and 3.4 on Google Play, with repeated complaints about ramps and settings that reset, so a working alternative backed by measurements gives you something concrete to offer. Below: where things stand, how to approach the company, the legal flag, what the official app supports, and what is still missing.
 
 ## Where things stand
 
 AquaLamp has strong protocol documentation but almost no traction, and Week Aqua's app has real weaknesses you can pitch against.
 
-**Your repo.** [AquaLamp](https://github.com/bugaXcore/Aqualamp) is a TypeScript monorepo with a web UI, a WebSocket bridge, a Python BLE sidecar, a CLI and a controller library. The [protocol notes](https://github.com/bugaXcore/Aqualamp/blob/main/docs/research/PROTOCOL.md) cover timer and schedule frames, brightness calibration, fade measurements and a firmware-update service you deliberately avoided. The weak points are traction and packaging: 0 stars, 0 forks, no releases, "mobile packaging" still listed as planned, and no LICENSE file in the root listing.
+**Your repo.** [AquaLamp](https://github.com/bugaXcore/Aqualamp) is a TypeScript monorepo with a web UI, a WebSocket bridge, a Python BLE sidecar, a CLI and a controller library. The [protocol notes](https://github.com/bugaXcore/Aqualamp/blob/main/docs/research/PROTOCOL.md) cover timer and schedule frames, brightness calibration, fade measurements and a firmware-update service you deliberately avoided. The weak points are traction and packaging: 0 stars, 0 forks, no releases, and "mobile packaging" still listed as planned. It has an MIT LICENSE in the root.
 
 **The company.** Week Aqua is Zhuhai WEEKAQUA Technology Co., Ltd. It develops and sells LED aquarium lighting under its own brands and offers OEM/ODM work. Its [site](https://weekaqua.com/sy) lists Sales@weekaqua.com and +86-0756-3386506.
 
@@ -113,13 +113,13 @@ Your protocol notes say you read the official app's decompiled code with jadx, i
 
 ## Feature parity for the S300 Pro (B3.0)
 
-AquaLamp already covers the timer and the 5-slot schedule; the open items for the S300 Pro are presets, the ramp, the fan and polish. Many of the app's headline features belong to other lamp families: the 18 named fish and plant modes, 12 custom modes and 12-segment timing were added for the B9.0 T8 tubes, and 8-segment timing belongs to the B6.0 spotlights and B8.0 pump controller. The B3.0 family gets 6 recommended and 6 custom modes, and your hardware tests found 5 schedule slots, which is probably all its firmware exposes. Status below comes from the repo's README and PROTOCOL.md; I did not see the web UI itself.
+AquaLamp already covers the 5-slot schedule, which replaces the single daily timer in the UI; the open items for the S300 Pro are presets, the ramp, the fan and polish. Many of the app's headline features belong to other lamp families: the 18 named fish and plant modes, 12 custom modes and 12-segment timing were added for the B9.0 T8 tubes, and 8-segment timing belongs to the B6.0 spotlights and B8.0 pump controller. The B3.0 family gets 6 recommended and 6 custom modes, and your hardware tests found 5 schedule slots, which is probably all its firmware exposes. Status below comes from the repo's README and PROTOCOL.md; I did not see the web UI itself.
 
 | Feature | Official app | AquaLamp status for the S300 Pro |
 | --- | --- | --- |
-| Basic daily timer | Yes, a sunrise/sunset window | Protocol done in the library; not exposed in the UI or CLI (the UI uses the 5-slot schedule instead) |
+| Basic daily schedule | Yes, a sunrise/sunset window | Yes: presets with up to 5 lit keys run on the lamp as the 5-slot schedule and survive an app close or lamp power cut. The single timer window is in the library only; the UI does not need it |
 | Multi-segment schedule | 8 or 12 segments on other families | Done and verified: 5 slots on the S300 Pro, in the UI, keeps running after a PC disconnect. Phone-tab close and lamp power cut not tested yet |
-| Sunrise/sunset ramp | 0, 0.5, 1, 2 and 2.5 h | Partial, library only: codes 0 and 1 verified; codes 2-4 sat at a dim flat floor for 12 minutes; code 5 jumps to bright. The UI's sunrise/sunset strip only places keyframes, it does not set lamp fade codes |
+| Sunrise/sunset ramp | 0, 0.5, 1, 2 and 2.5 h | Partial, library only: code 0 is full within seconds, code 1 ramps over about 27 min, codes 2-4 rise in stepped plateaus over more than 50 min, code 5 jumps to bright. The UI's sunrise/sunset strip only places keyframes, it does not set lamp fade codes |
 | Named presets | 6 recommended modes; Amazon's S300 Pro listing names Green, Red, Mixed, Gorgeous, Colorful and N-Pharm | Not matched: 12 preset frames found, names unknown, not in the UI (the built-ins in the UI are our own curves) |
 | Custom modes | 6 custom modes on B3.0 | Not mapped: our presets are unlimited and stored in the browser; only the playing preset is sent to the lamp, as up to 5 steps |
 | Fan control | Yes | Frame sent with no visible or audible effect; the S300 Pro may not have a fan |
@@ -168,18 +168,18 @@ A community Home Assistant integration for Week Aqua Bluetooth lights already ex
 
 ## What's missing to become the official app
 
-Ten gaps separate AquaLamp from an official app, and the highest-value fixes are a license, a clean demo, and a second lamp family with its protocol documented.
+Ten gaps separate AquaLamp from an official app, and the highest-value fixes are a clean demo, and a second lamp family with its protocol documented.
 
 | Gap | Why it matters |
 | --- | --- |
 | **Only the S300 Pro (B3.0) is covered.** The official app spans series B1.0 to B9.0, including a smart plug, a pump controller and T8 tubes. | An official app must support their whole range, so you need lamps from other series. |
 | **One lamp, one firmware, unclear hardware revisions.** B3.0 has a VER2 with more gradual lighting and more schedules. | Test across revisions before claiming compatibility. |
-| **Unverified protocol pieces:** the fan frame, a master-brightness command, the `TT` timer byte, fade codes 2-5, sunset fades, UV calibration, and what the `F9` handshake frame does. | Each one is a user-visible feature or a possible bug. |
+| **Unverified protocol pieces:** the fan frame, a master-brightness command, the `TT` timer byte, the full length of fade codes 2-4, sunset fades, UV calibration (UV itself works, confirmed by eye), and what the `F9` handshake frame does. | Each one is a user-visible feature or a possible bug. |
 | **Feature gaps for the S300 Pro:** unnamed presets, custom-mode slots, ramp options up to 2.5 h, fan control, and a check that feeding on/off works without editing the schedule. | Users judge the replacement against the old app's feature list. |
 | **No iOS path.** Your phone route is Web Bluetooth on Android Chrome, and iOS Safari doesn't support Web Bluetooth. | The official app supports iOS 13+, so iPhone needs a native or wrapped app. |
 | **No native packaging or store presence.** Mobile packaging is still planned. | Official means a store listing, signing, permissions and a privacy policy under their developer account. |
 | **No users, no field testing, no maintainer story.** | Companies adopt things that already have an audience. |
-| **Licensing and trademark.** There is no LICENSE, and the project uses the Week Aqua name unofficially. | They need clear ownership or a license, and they control branding. |
+| **Licensing and trademark.** The code is MIT-licensed, and the project uses the Week Aqua name unofficially. | They control branding, and may want clear ownership of any shared work. |
 | **Languages.** The official app ships nine; I could not check your UI's. | An official app needs at least Chinese and English. |
 | **Wake and connection behavior.** Your notes say the lamp allows one connection and that waking a sleeping lamp isn't fully solved. | These are the failure modes users will hit first. |
 
