@@ -227,8 +227,8 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - Killing the bridge and sidecar: the lamp kept running its stored schedule (45 s watched, steady).
 - Fade code 3, 50 min with the timer starting at the base time: wall sum about 6 (off) before start, then stepped plateaus rather than a smooth ramp: about 52 from 0 s, about 222 from about 7 min, about 348 from about 18 min, about 424 from about 36 min, holding to 50 min. Plateaus drift down by about 1%.
 - `tools/hwtest/wall_watch.py` prints the wall colour passively.
-- Not tested: a lamp power cut (needs a physical unplug), UV, fade codes 2 and 4 over long runs.
-- Lamp power cut (unplugged about 55 s, replugged): the stored all-day blue slot in mode 2 came back by itself about 5 s after power returned, with no app or bridge connected. Schedules survive power loss (a window-based slot was not tested against the clock, which the lamp loses until it is set again).
+- Lamp power cut (unplugged about 55 s, replugged): the stored all-day blue slot in mode 2 came back by itself about 5 s after power returned, with no app or bridge connected. Schedules survive power loss.
+- Timed window after power cut (2026-11-03): slot 1 blue 07:31-10:41 in mode 2, lamp unplugged about 20 s at about 07:57 (inside the window). Seen by eye, the same dim blue came back after replug, so the window slot resumed with no connection. The webcam reading jumped after the replug (probably camera auto-exposure; the dark period was not captured), so only the eye observation counts. Whether the lamp keeps its clock across a power cut was not separated from this test.
 - UV (tools/hwtest/uv_test.py): only the UV byte set to 25/50/100% moved the webcam wall reading by under 0.1 (dark 5.8, UV 100% 5.9). The webcam cannot see the UV channel, so UV output is unverified by camera; check by eye or with a fluorescent object.
 - UV confirmed by eye (user, 2026-11-03): a mode-1 frame with only the 4th colour byte set to FF turns the UV emitter on, so that byte is UV. The webcam still cannot see it.
 
@@ -238,5 +238,4 @@ Hardware mode (default): the playing preset is always uploaded as lamp steps (mo
 - Code 2: about 51 at the start, then steps about every 12 min: about 118 (12 min), 170 (24 min), 180 then 214 (36 min), 240 (48 min).
 - Code 3 (earlier run): steps at about 7, 18 and 36 min.
 - Code 4: about 50 at the start, then steps about every 24 min: about 118 (24 min), 170 (48 min).
-- Each plateau drifts down by about 1%. The final step levels (about 240 at 48 min) are well below the full-brightness level, so the fade is a long ramp that the 50 min runs only partly cover.
-- Timed window after power cut (2026-11-03): slot 1 blue 07:31-10:41 in mode 2, lamp unplugged about 20 s at about 07:57 (inside the window). Seen by eye, the same dim blue came back after replug, so the window slot resumed with no connection. The webcam reading jumped after the replug (probably camera auto-exposure; the dark period was not captured), so only the eye observation counts. Whether the lamp keeps its clock across a power cut, or resets it, was not separated: that needs a replug test with the window starting after a clock reset time.
+- Each plateau drifts down by about 1%. The levels reached in 50 min (about 240 for code 2, 170 for code 4) are below code 3 at 36 min (424), so the full fade length for codes 2 and 4 is still unknown.
